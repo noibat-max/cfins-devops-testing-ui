@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QA Workbench">
+  <rect width="512" height="512" fill="#005EB8"/>
+  <text x="256" y="318" text-anchor="middle"
+        font-family="'Helvetica Neue', Helvetica, Arial, sans-serif"
+        font-weight="700" font-size="248" letter-spacing="-8" fill="#FFFFFF">QA</text>
+  <rect x="150" y="356" width="212" height="30" rx="6" fill="#FFD633"/>
+</svg>

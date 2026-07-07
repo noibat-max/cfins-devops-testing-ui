@@ -1,0 +1,37 @@
+/* Per-application navigation bar (tabs). Sits below the workbench bar. */
+.app-nav {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  background: #ffffff;
+  border-bottom: 1px solid #e9ebed;
+  padding: 0 20px;
+}
+
+.app-nav-item {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-bottom: 3px solid transparent; /* reserve space so active doesn't shift layout */
+  color: #5f6b7a;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  padding: 13px 14px 10px;
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+.app-nav-item:hover {
+  color: #0f1b2d;
+  background: rgba(0, 0, 0, 0.04); /* subtle highlight on hover */
+}
+
+.app-nav-item--active {
+  color: #0f1b2d;
+  font-weight: 700;
+  border-bottom-color: #005eb8; /* brand blue underline on the selected tab */
+}
+.app-nav-item--active:hover {
+  background: transparent;
+}

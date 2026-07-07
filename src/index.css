@@ -1,0 +1,14 @@
+/* Inter as the workbench UI font (per branding spec). Tabular figures are
+   enabled for data-dense numeric columns. */
+:root {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    sans-serif;
+  font-feature-settings: 'tnum' 1; /* tabular figures */
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}

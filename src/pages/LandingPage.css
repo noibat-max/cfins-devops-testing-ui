@@ -1,0 +1,25 @@
+/* Application cards on the landing page — elevate + brand highlight on hover */
+.app-card {
+  height: 100%;
+  border-radius: 16px; /* matches Cloudscape container radius */
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.app-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(0, 94, 184, 0.2); /* brand-tinted elevation */
+}
+.app-card:focus-visible {
+  outline: 2px solid #005eb8;
+  outline-offset: 2px;
+  border-radius: 16px;
+}
+
+/* Coming-soon cards are not interactive */
+.app-card--disabled {
+  cursor: default;
+}
+.app-card--disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
