@@ -6,15 +6,15 @@ import Box from '@cloudscape-design/components/box';
 import Button from '@cloudscape-design/components/button';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import WorkbenchTopBar from './WorkbenchTopBar';
-import AppNavBar from './AppNavBar';
+import AppNavBar, { type NavItem } from './AppNavBar';
 
 interface Props {
   title: string;
   description?: string;
   /** When set, shown as the selected-app context in the workbench bar. */
   selectedAppName?: string;
-  /** Optional second-row app navigation bar (stub) shown below the workbench bar. */
-  appNav?: string[];
+  /** Optional second-row app navigation bar shown below the workbench bar. */
+  appNav?: NavItem[];
 }
 
 /**

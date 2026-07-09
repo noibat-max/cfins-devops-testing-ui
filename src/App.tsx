@@ -5,6 +5,8 @@ import AuthCallback from './pages/AuthCallback';
 import LandingPage from './pages/LandingPage';
 import AppScreen from './pages/AppScreen';
 import AdminScreen from './pages/AdminScreen';
+import UseCasesList from './pages/qastudio/UseCasesList';
+import UseCaseDetail from './pages/qastudio/UseCaseDetail';
 
 export default function App() {
   return (
@@ -16,6 +18,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <LandingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/apps/qa-studio/usecases"
+        element={
+          <ProtectedRoute>
+            <UseCasesList />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/apps/qa-studio/usecases/:id"
+        element={
+          <ProtectedRoute>
+            <UseCaseDetail />
           </ProtectedRoute>
         }
       />
