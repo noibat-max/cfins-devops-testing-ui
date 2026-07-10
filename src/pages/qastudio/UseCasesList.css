@@ -1,0 +1,58 @@
+.uc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(570px, 1fr));
+  gap: 16px;
+}
+
+/* Actions pinned to the right edge of the card, kept on one line. */
+.uc-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.uc-card {
+  height: 100%;
+  border-radius: 16px; /* matches Cloudscape container radius */
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.uc-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(0, 94, 184, 0.2); /* brand-tinted elevation */
+}
+.uc-card:focus-visible {
+  outline: 2px solid #005eb8;
+  outline-offset: 2px;
+  border-radius: 16px;
+}
+
+.uc-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.uc-card-title {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+/* Clamp description to two lines with an ellipsis; full text on hover (title).
+   Always reserves two lines so 1-line and 2-line cards stay the same height. */
+.uc-card-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 2.8em; /* ~2 lines */
+  line-height: 1.4;
+}
+.uc-card-desc--empty {
+  color: var(--color-text-status-inactive, #5f6b7a);
+}

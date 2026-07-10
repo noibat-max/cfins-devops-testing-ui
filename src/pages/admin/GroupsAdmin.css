@@ -1,0 +1,34 @@
+.group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+  gap: 16px;
+}
+
+.group-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.group-card-title {
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.group-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+/* Scope badges wrap, but the card version is clamped to ~2 lines.
+   The overflow "+N more" link stays visible (it's the last flow item). */
+.scope-badge-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}

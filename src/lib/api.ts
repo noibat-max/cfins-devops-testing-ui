@@ -1,9 +1,15 @@
 import type {
+  AdminUser,
   AuthResponse,
+  Group,
+  Header,
+  ScopeInfo,
+  SecretMeta,
   Step,
   Usecase,
   UsecaseExport,
   User,
+  Variable,
   WorkbenchApp,
 } from '../types';
 
@@ -113,7 +119,7 @@ export function cloneUsecase(
 
 export function importUsecase(
   payload: UsecaseExport,
-): Promise<{ usecaseId: string }> {
+): Promise<{ usecaseId: string; secretsPending?: string[] }> {
   return req('/import', { method: 'POST', body: JSON.stringify(payload) });
 }
 
@@ -158,5 +164,131 @@ export function reorderSteps(
   return req(`/usecase/${usecaseId}/steps/reorder`, {
     method: 'PATCH',
     body: JSON.stringify({ step_orders: stepOrders }),
+  });
+}
+
+// ---- Use-case config: variables & secrets (§3) ----
+
+export function getVariables(usecaseId: string): Promise<{ variables: Variable[] }> {
+  return req(`/usecase/${usecaseId}/variables`);
+}
+
+export function putVariables(usecaseId: string, variables: Variable[]): Promise<{ variables: Variable[] }> {
+  return req(`/usecase/${usecaseId}/variables`, {
+    method: 'POST',
+    body: JSON.stringify({ variables }),
+  });
+}
+
+export function getHeaders(usecaseId: string): Promise<{ headers: Header[] }> {
+  return req(`/usecase/${usecaseId}/headers`);
+}
+
+export function putHeaders(usecaseId: string, headers: Header[]): Promise<{ headers: Header[] }> {
+  return req(`/usecase/${usecaseId}/headers`, {
+    method: 'POST',
+    body: JSON.stringify({ headers }),
+  });
+}
+
+export function listSecrets(usecaseId: string): Promise<{ secrets: SecretMeta[] }> {
+  return req(`/usecase/${usecaseId}/secrets`);
+}
+
+/** Create (or upsert) one secret. The API accepts a batch; we send one at a time. */
+export function createSecret(
+  usecaseId: string,
+  secret: { key: string; value: string; description?: string },
+): Promise<{ count: number }> {
+  return req(`/usecase/${usecaseId}/secrets`, {
+    method: 'POST',
+    body: JSON.stringify({ secrets: [secret] }),
+  });
+}
+
+export function updateSecret(usecaseId: string, secretKey: string, value: string): Promise<{ secret_key: string }> {
+  return req(`/usecase/${usecaseId}/secrets`, {
+    method: 'PATCH',
+    body: JSON.stringify({ secret_key: secretKey, value }),
+  });
+}
+
+export function deleteSecret(usecaseId: string, secretKey: string): Promise<{ secret_key: string }> {
+  return req(`/usecase/${usecaseId}/secrets`, {
+    method: 'DELETE',
+    body: JSON.stringify({ secret_key: secretKey }),
+  });
+}
+
+// ---- Admin: local users + groups ----
+
+export function listUsers(): Promise<{ users: AdminUser[] }> {
+  return req('/users');
+}
+
+export function listGroups(): Promise<{ groups: Group[] }> {
+  return req('/groups');
+}
+
+export function listScopes(): Promise<{ scopes: ScopeInfo[] }> {
+  return req('/scopes');
+}
+
+export function createGroup(body: {
+  name: string;
+  description?: string;
+  scopes?: string[];
+}): Promise<Group> {
+  return req('/groups', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export function updateGroup(
+  name: string,
+  body: { description?: string; scopes?: string[] },
+): Promise<Group> {
+  return req(`/groups/${name}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export function deleteGroup(name: string): Promise<{ status: string }> {
+  return req(`/groups/${name}`, { method: 'DELETE' });
+}
+
+export function createUser(body: {
+  username: string;
+  password: string;
+  email?: string;
+  displayName?: string;
+  groups?: string[];
+  status?: string;
+}): Promise<AdminUser> {
+  return req('/users', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export function setUserPassword(username: string, password: string): Promise<{ status: string }> {
+  return req(`/users/${username}/password`, { method: 'PUT', body: JSON.stringify({ password }) });
+}
+
+export function setUserGroups(username: string, groups: string[]): Promise<{ status: string }> {
+  return req(`/users/${username}/groups`, { method: 'PUT', body: JSON.stringify({ groups }) });
+}
+
+export function updateUser(
+  username: string,
+  body: { email?: string; displayName?: string; status?: string; groups?: string[] },
+): Promise<AdminUser> {
+  return req(`/users/${username}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export function deleteUser(username: string): Promise<{ status: string }> {
+  return req(`/users/${username}`, { method: 'DELETE' });
+}
+
+export function changeOwnPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ status: string }> {
+  return req('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
   });
 }

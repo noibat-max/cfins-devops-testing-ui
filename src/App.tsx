@@ -7,6 +7,8 @@ import AppScreen from './pages/AppScreen';
 import AdminScreen from './pages/AdminScreen';
 import UseCasesList from './pages/qastudio/UseCasesList';
 import UseCaseDetail from './pages/qastudio/UseCaseDetail';
+import UsersAdmin from './pages/admin/UsersAdmin';
+import GroupsAdmin from './pages/admin/GroupsAdmin';
 
 export default function App() {
   return (
@@ -42,6 +44,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <AppScreen />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <ProtectedRoute>
+            <UsersAdmin />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/groups"
+        element={
+          <ProtectedRoute>
+            <GroupsAdmin />
           </ProtectedRoute>
         }
       />

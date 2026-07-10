@@ -23,6 +23,8 @@ interface StoredAuth {
 interface AuthContextValue {
   user: User | null;
   token: string | null;
+  /** Which provider the session was established with. */
+  provider: Provider | null;
   login: (username: string, password: string) => Promise<void>;
   /** Begin SSO — redirects the browser to Cognito (does not return). */
   loginSso: () => Promise<void>;
@@ -88,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user: auth?.user ?? null,
       token: auth?.token ?? null,
+      provider: auth?.provider ?? null,
       login,
       loginSso,
       completeSso,

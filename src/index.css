@@ -12,3 +12,36 @@ body,
   height: 100%;
   margin: 0;
 }
+
+/* Destructive actions rendered red (Cloudscape has no danger button variant).
+   Wrap a Button in <span class="wb-danger">…</span> to tint text + icon red. */
+.wb-danger button,
+.wb-danger a {
+  color: #c0504d !important;
+}
+.wb-danger button:hover,
+.wb-danger a:hover {
+  color: #a5403d !important;
+}
+.wb-danger svg {
+  fill: currentColor;
+}
+
+/* Filled red for the destructive confirm button in a dialog. */
+.wb-danger-fill button {
+  background: #c0504d !important;
+  border-color: #c0504d !important;
+  color: #fff !important;
+}
+.wb-danger-fill button:hover {
+  background: #a5403d !important;
+  border-color: #a5403d !important;
+}
+
+/* Card body that fills the container height so actions can pin to the bottom
+   (used with Cloudscape Container fitHeight, without a divider footer). */
+.card-fill {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}

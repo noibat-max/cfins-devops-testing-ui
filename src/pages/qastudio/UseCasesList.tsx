@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@cloudscape-design/components/header';
-import Table from '@cloudscape-design/components/table';
+import Container from '@cloudscape-design/components/container';
 import Box from '@cloudscape-design/components/box';
 import Button from '@cloudscape-design/components/button';
-import ButtonDropdown from '@cloudscape-design/components/button-dropdown';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import TextFilter from '@cloudscape-design/components/text-filter';
 import Badge from '@cloudscape-design/components/badge';
-import Link from '@cloudscape-design/components/link';
+import StatusIndicator from '@cloudscape-design/components/status-indicator';
+import Spinner from '@cloudscape-design/components/spinner';
 import Flashbar, { type FlashbarProps } from '@cloudscape-design/components/flashbar';
 import Modal from '@cloudscape-design/components/modal';
+import Alert from '@cloudscape-design/components/alert';
 import FormField from '@cloudscape-design/components/form-field';
 import Input from '@cloudscape-design/components/input';
 import Textarea from '@cloudscape-design/components/textarea';
@@ -21,6 +22,7 @@ import { useAuth } from '../../lib/auth';
 import { hasScope } from '../../types';
 import type { Usecase, UsecaseExport } from '../../types';
 import * as api from '../../lib/api';
+import './UseCasesList.css';
 
 const USECASES_BASE = '/apps/qa-studio/usecases';
 
@@ -42,10 +44,10 @@ export default function UseCasesList() {
   const flash = useCallback(
     (type: FlashbarProps.Type, content: string) => {
       const id = `${Date.now()}-${Math.random()}`;
-      setFlashes((f) => [
-        ...f,
-        { id, type, content, dismissible: true, onDismiss: () => setFlashes((x) => x.filter((m) => m.id !== id)) },
-      ]);
+      const dismiss = () => setFlashes((x) => x.filter((m) => m.id !== id));
+      setFlashes((f) => [...f, { id, type, content, dismissible: true, onDismiss: dismiss }]);
+      // Auto-clear transient confirmations; keep errors until dismissed.
+      if (type === 'success' || type === 'info') setTimeout(dismiss, 4000);
     },
     [],
   );
@@ -94,98 +96,129 @@ export default function UseCasesList() {
         <SpaceBetween size="l">
           {flashes.length > 0 && <Flashbar items={flashes} />}
 
-          <Table<Usecase>
-            variant="full-page"
-            items={filtered}
-            loading={items === null && !error}
-            loadingText="Loading use cases"
-            trackBy="id"
-            empty={
-              <Box textAlign="center" padding="l" color="text-body-secondary">
-                <SpaceBetween size="s">
-                  <b>No use cases</b>
-                  {canWrite && (
-                    <Button onClick={() => setShowCreate(true)}>Create use case</Button>
-                  )}
-                </SpaceBetween>
-              </Box>
+          <Header
+            variant="h1"
+            counter={items ? `(${items.length})` : undefined}
+            actions={
+              <SpaceBetween direction="horizontal" size="xs">
+                <Button variant="icon" iconName="refresh" onClick={load} ariaLabel="Refresh" />
+                {canWrite && (
+                  <Button variant="link" iconName="upload" onClick={() => setShowImport(true)}>
+                    Import
+                  </Button>
+                )}
+                {canWrite && (
+                  <Button variant="primary" iconName="add-plus" onClick={() => setShowCreate(true)}>
+                    Create
+                  </Button>
+                )}
+              </SpaceBetween>
             }
-            filter={
-              <TextFilter
-                filteringText={filter}
-                filteringPlaceholder="Find use cases"
-                filteringAriaLabel="Find use cases"
-                onChange={({ detail }) => setFilter(detail.filteringText)}
-              />
-            }
-            header={
-              <Header
-                variant="h1"
-                counter={items ? `(${items.length})` : undefined}
-                actions={
-                  <SpaceBetween direction="horizontal" size="xs">
-                    <Button iconName="refresh" onClick={load} ariaLabel="Refresh" />
-                    {canWrite && (
-                      <Button iconName="upload" onClick={() => setShowImport(true)}>
-                        Import
-                      </Button>
-                    )}
-                    {canWrite && (
-                      <Button variant="primary" iconName="add-plus" onClick={() => setShowCreate(true)}>
-                        Create use case
-                      </Button>
-                    )}
-                  </SpaceBetween>
-                }
-              >
-                Use cases
-              </Header>
-            }
-            columnDefinitions={[
-              {
-                id: 'name',
-                header: 'Name',
-                cell: (u) => (
-                  <Link href={`${USECASES_BASE}/${u.id}`} onFollow={(e) => { e.preventDefault(); navigate(`${USECASES_BASE}/${u.id}`); }}>
-                    {u.name || '(untitled)'}
-                  </Link>
-                ),
-                isRowHeader: true,
-              },
-              { id: 'description', header: 'Description', cell: (u) => u.description || '—' },
-              {
-                id: 'active',
-                header: 'Active',
-                cell: (u) => <Badge color={u.active ? 'green' : 'grey'}>{u.active ? 'Active' : 'Inactive'}</Badge>,
-              },
-              { id: 'tags', header: 'Tags', cell: (u) => (u.tags?.length ? u.tags.join(', ') : '—') },
-              { id: 'region', header: 'Region', cell: (u) => u.executing_region || '—' },
-              { id: 'created', header: 'Created', cell: (u) => u.created_at || '—' },
-              {
-                id: 'actions',
-                header: '',
-                cell: (u) => (
-                  <ButtonDropdown
-                    variant="inline-icon"
-                    ariaLabel={`Actions for ${u.name}`}
-                    items={[
-                      { id: 'open', text: 'Open' },
-                      { id: 'export', text: 'Export' },
-                      { id: 'clone', text: 'Clone', disabled: !canWrite },
-                      { id: 'delete', text: 'Delete', disabled: !canWrite },
-                    ]}
-                    onItemClick={({ detail }) => {
-                      if (detail.id === 'open') navigate(`${USECASES_BASE}/${u.id}`);
-                      else if (detail.id === 'export') onExport(u);
-                      else if (detail.id === 'clone') setCloneTarget(u);
-                      else if (detail.id === 'delete') setDeleteTarget(u);
-                    }}
-                  />
-                ),
-              },
-            ]}
-          />
-          {error && <Flashbar items={[{ type: 'error', content: error, dismissible: false }]} />}
+          >
+            Use cases
+          </Header>
+
+          <div style={{ maxWidth: 480 }}>
+            <TextFilter
+              filteringText={filter}
+              filteringPlaceholder="Find use cases"
+              filteringAriaLabel="Find use cases"
+              onChange={({ detail }) => setFilter(detail.filteringText)}
+            />
+          </div>
+
+          {error ? (
+            <Flashbar items={[{ type: 'error', content: error, dismissible: false }]} />
+          ) : items === null ? (
+            <Box textAlign="center" padding="xxl"><Spinner size="large" /></Box>
+          ) : filtered.length === 0 ? (
+            <Box textAlign="center" padding="xxl" color="text-body-secondary">
+              <SpaceBetween size="s">
+                <b>{items.length === 0 ? 'No use cases' : `No matches for “${filter}”`}</b>
+                {items.length === 0 && canWrite && (
+                  <div><Button onClick={() => setShowCreate(true)}>Create use case</Button></div>
+                )}
+              </SpaceBetween>
+            </Box>
+          ) : (
+            <div className="uc-grid">
+              {filtered.map((u) => (
+                <div
+                  key={u.id}
+                  className="uc-card"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Open ${u.name || 'use case'}`}
+                  onClick={() => navigate(`${USECASES_BASE}/${u.id}`)}
+                  onKeyDown={(e) => {
+                    // Only when the card itself is focused (not a child button).
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate(`${USECASES_BASE}/${u.id}`);
+                    }
+                  }}
+                >
+                  <Container
+                    fitHeight
+                    header={
+                      <div className="uc-card-title-row">
+                        <span className="uc-card-title">{u.name || '(untitled)'}</span>
+                        {u.active ? (
+                          <StatusIndicator type="success">Active</StatusIndicator>
+                        ) : (
+                          <StatusIndicator type="stopped" colorOverride="grey">Inactive</StatusIndicator>
+                        )}
+                      </div>
+                    }
+                  >
+                    <div className="card-fill">
+                      <SpaceBetween size="m">
+                        {u.tags?.length ? (
+                          <SpaceBetween direction="horizontal" size="xs">
+                            {u.tags.map((t) => (
+                              <Badge key={t} color="blue">{t}</Badge>
+                            ))}
+                          </SpaceBetween>
+                        ) : null}
+
+                        <div className="uc-card-desc" title={u.description || undefined}>
+                          {u.description || (
+                            <span className="uc-card-desc--empty">No description</span>
+                          )}
+                        </div>
+
+                        <Box fontSize="body-s" color="text-body-secondary">
+                          {(u.executing_region || '—')} · {(u.created_at || '—')}
+                        </Box>
+                      </SpaceBetween>
+
+                      {/* Actions, right-aligned; stopPropagation so they don't open the card */}
+                      <span className="uc-card-actions" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="link" iconName="download" onClick={() => onExport(u)}>Export</Button>
+                        {canWrite && (
+                          <Button variant="link" iconName="copy" onClick={() => setCloneTarget(u)}>Clone</Button>
+                        )}
+                        {canWrite && (
+                          <span className="wb-danger">
+                            <Button variant="link" iconName="remove" onClick={() => setDeleteTarget(u)}>Delete</Button>
+                          </span>
+                        )}
+                        <Button
+                          variant="primary"
+                          iconName="arrow-right"
+                          iconAlign="right"
+                          onClick={() => navigate(`${USECASES_BASE}/${u.id}`)}
+                        >
+                          Open
+                        </Button>
+                      </span>
+                    </div>
+                  </Container>
+                </div>
+              ))}
+            </div>
+          )}
         </SpaceBetween>
       </Box>
 
@@ -282,6 +315,9 @@ function ImportModal({ onClose, onImported, onError }: { onClose: () => void; on
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  // After a successful import that carried secret keys (values never round-trip),
+  // hold the result so we can tell the user which secrets still need values.
+  const [pending, setPending] = useState<{ id: string; secrets: string[] } | null>(null);
 
   const submit = async () => {
     let payload: UsecaseExport;
@@ -294,12 +330,38 @@ function ImportModal({ onClose, onImported, onError }: { onClose: () => void; on
     setBusy(true);
     try {
       const r = await api.importUsecase(payload);
-      onImported(r.usecaseId);
+      const secrets = r.secretsPending ?? [];
+      if (secrets.length > 0) {
+        setPending({ id: r.usecaseId, secrets });
+        setBusy(false);
+      } else {
+        onImported(r.usecaseId);
+      }
     } catch (e) {
       onError(e instanceof Error ? e.message : 'Import failed');
       setBusy(false);
     }
   };
+
+  if (pending) {
+    return (
+      <Modal
+        visible
+        onDismiss={() => onImported(pending.id)}
+        header="Use case imported"
+        footer={<Box float="right"><Button variant="primary" onClick={() => onImported(pending.id)}>Open use case</Button></Box>}
+      >
+        <Alert type="warning" header="Secrets need values">
+          Secret values are never exported, so these keys were imported without a value. Set each one in the use case's <b>Secrets</b> tab before running it:
+          <Box padding={{ top: 'xs' }}>
+            <SpaceBetween direction="horizontal" size="xs">
+              {pending.secrets.map((k) => <Badge key={k} color="grey">{k}</Badge>)}
+            </SpaceBetween>
+          </Box>
+        </Alert>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -377,7 +439,7 @@ function DeleteModal({ target, onClose, onDeleted, onError }: { target: Usecase;
         <Box float="right">
           <SpaceBetween direction="horizontal" size="xs">
             <Button variant="link" onClick={onClose}>Cancel</Button>
-            <Button variant="primary" loading={busy} onClick={submit}>Delete</Button>
+            <span className="wb-danger-fill"><Button variant="primary" loading={busy} onClick={submit}>Delete</Button></span>
           </SpaceBetween>
         </Box>
       }

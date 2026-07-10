@@ -64,9 +64,29 @@ export interface Step {
   validation_type?: string;
   validation_operator?: string;
   validation_value?: string;
+  validation_tolerance?: string;
   assertion_variable?: string;
   value_type?: string;
   value_source?: string;
+}
+
+/** A plaintext use-case variable, interpolated into steps as {{key}}. */
+export interface Variable {
+  key: string;
+  value: string;
+}
+
+/** A custom HTTP header injected into the browser session. Value may contain {{variables}}. */
+export interface Header {
+  name: string;
+  value: string;
+}
+
+/** A use-case secret — metadata only; the value is never returned by the API. */
+export interface SecretMeta {
+  key: string;
+  description: string;
+  created_at: string;
 }
 
 /** The export envelope produced by GET /usecase/{id}/export. */
@@ -76,4 +96,26 @@ export interface UsecaseExport {
   steps: Array<Record<string, unknown>>;
   variables: unknown[];
   secrets: unknown[];
+}
+
+// ---- Admin (local users + groups) ----
+
+export interface AdminUser {
+  username: string;
+  email: string;
+  displayName: string;
+  groups: string[];
+  status: string; // "active" | "disabled"
+  createdAt: string;
+}
+
+export interface Group {
+  name: string;
+  description: string;
+  scopes: string[];
+}
+
+export interface ScopeInfo {
+  scope: string;
+  description: string;
 }
