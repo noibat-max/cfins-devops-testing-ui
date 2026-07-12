@@ -29,7 +29,7 @@ const USECASES_BASE = '/apps/qa-studio/usecases';
 export default function UseCasesList() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canWrite = hasScope(user, 'api/usecases.write');
+  const canWrite = hasScope(user, 'api/nova/usecases.write');
 
   const [items, setItems] = useState<Usecase[] | null>(null);
   const [error, setError] = useState<string | null>(null);

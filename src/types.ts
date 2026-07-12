@@ -119,3 +119,20 @@ export interface ScopeInfo {
   scope: string;
   description: string;
 }
+
+// ---- Personal access tokens (CLI auth) ----
+
+/** A PAT's public metadata — the raw token is only returned once, at creation. */
+export interface Token {
+  id: string;
+  name: string;
+  description: string;
+  scopes: string[];
+  createdAt: string;
+  expiresAt: string;
+  last4: string;
+  expired: boolean;
+}
+
+/** Create response: the metadata plus the one-time raw token value. */
+export type CreatedToken = Token & { token: string };

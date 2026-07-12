@@ -154,6 +154,14 @@ export default function WorkbenchTopBar({ selectedAppName }: Props) {
                   <div className="wb-menu-divider" />
                 </>
               )}
+              <div className="wb-menu-section">Settings</div>
+              <button
+                className="wb-menu-item"
+                role="menuitem"
+                onClick={() => goTo('/settings/tokens')}
+              >
+                Personal access tokens
+              </button>
               {provider === 'local' && (
                 <button
                   className="wb-menu-item"
@@ -163,6 +171,7 @@ export default function WorkbenchTopBar({ selectedAppName }: Props) {
                   Change password
                 </button>
               )}
+              <div className="wb-menu-divider" />
               <button className="wb-menu-item" role="menuitem" onClick={signOff}>
                 Sign off
               </button>

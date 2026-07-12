@@ -157,7 +157,7 @@ export default function UseCaseDetail() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canWrite = hasScope(user, 'api/usecases.write');
+  const canWrite = hasScope(user, 'api/nova/usecases.write');
 
   const [usecase, setUsecase] = useState<Usecase | null>(null);
   const [error, setError] = useState<string | null>(null);

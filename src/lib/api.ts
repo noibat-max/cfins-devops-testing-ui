@@ -1,11 +1,13 @@
 import type {
   AdminUser,
   AuthResponse,
+  CreatedToken,
   Group,
   Header,
   ScopeInfo,
   SecretMeta,
   Step,
+  Token,
   Usecase,
   UsecaseExport,
   User,
@@ -14,7 +16,12 @@ import type {
 } from '../types';
 
 // Points at cfins-devops-testing-api (uvicorn). Override with VITE_API_BASE.
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
+// The app owns `/api`: every functional route is under it. QA Studio (Nova Act)
+// calls go under `/api/nova`; workbench-shell calls (auth, apps, admin, tokens)
+// sit directly under `/api`.
+const ROOT = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
+const API = `${ROOT}/api`;
+const NOVA = `${ROOT}/api/nova`;
 
 const AUTH_STORAGE_KEY = 'qa-workbench.auth';
 
@@ -44,22 +51,32 @@ async function asJson<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-/** Authenticated JSON request helper. */
-function req<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** Authenticated JSON request against a given base (workbench or Nova). */
+function request<T>(base: string, path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = { ...authHeader() };
   if (init.body) headers['Content-Type'] = 'application/json';
-  return fetch(`${API_BASE}${path}`, {
+  return fetch(`${base}${path}`, {
     ...init,
     headers: { ...headers, ...(init.headers as Record<string, string>) },
   }).then((r) => asJson<T>(r));
 }
 
+/** Workbench-shell request (under /api). */
+function req<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return request<T>(API, path, init);
+}
+
+/** QA Studio (Nova Act) request (under /api/nova). */
+function novaReq<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return request<T>(NOVA, path, init);
+}
+
 export function getApps(): Promise<WorkbenchApp[]> {
-  return fetch(`${API_BASE}/apps`).then((r) => asJson<WorkbenchApp[]>(r));
+  return fetch(`${API}/apps`).then((r) => asJson<WorkbenchApp[]>(r));
 }
 
 export function login(username: string, password: string): Promise<AuthResponse> {
-  return fetch(`${API_BASE}/auth/login`, {
+  return fetch(`${API}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password }),
@@ -73,45 +90,45 @@ export function ssoLogin(): Promise<AuthResponse> {
 }
 
 export function getMe(token: string): Promise<User> {
-  return fetch(`${API_BASE}/auth/me`, {
+  return fetch(`${API}/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
   }).then((r) => asJson<User>(r));
 }
 
-// ---- Use cases ----
+// ---- Use cases (Nova / QA Studio) ----
 
 export function listUsecases(): Promise<{ usecases: Usecase[] }> {
-  return req('/usecases');
+  return novaReq('/usecases');
 }
 
 export function getUsecase(id: string): Promise<Usecase> {
-  return req(`/usecase/${id}`);
+  return novaReq(`/usecase/${id}`);
 }
 
 export function createUsecase(body: Partial<Usecase>): Promise<Usecase> {
-  return req('/usecase', { method: 'POST', body: JSON.stringify(body) });
+  return novaReq('/usecase', { method: 'POST', body: JSON.stringify(body) });
 }
 
 export function updateUsecase(
   id: string,
   body: Partial<Usecase>,
 ): Promise<{ status: string; usecaseId: string }> {
-  return req(`/usecase/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+  return novaReq(`/usecase/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
 
 export function deleteUsecase(id: string): Promise<{ status: string }> {
-  return req(`/usecase/${id}`, { method: 'DELETE' });
+  return novaReq(`/usecase/${id}`, { method: 'DELETE' });
 }
 
 export function exportUsecase(id: string): Promise<UsecaseExport> {
-  return req(`/usecase/${id}/export`);
+  return novaReq(`/usecase/${id}/export`);
 }
 
 export function cloneUsecase(
   id: string,
   name: string,
 ): Promise<{ usecaseId: string }> {
-  return req(`/usecase/${id}/clone`, {
+  return novaReq(`/usecase/${id}/clone`, {
     method: 'POST',
     body: JSON.stringify({ name }),
   });
@@ -120,20 +137,20 @@ export function cloneUsecase(
 export function importUsecase(
   payload: UsecaseExport,
 ): Promise<{ usecaseId: string; secretsPending?: string[] }> {
-  return req('/import', { method: 'POST', body: JSON.stringify(payload) });
+  return novaReq('/import', { method: 'POST', body: JSON.stringify(payload) });
 }
 
 // ---- Steps ----
 
 export function listSteps(usecaseId: string): Promise<{ steps: Step[] }> {
-  return req(`/usecase/${usecaseId}/steps`);
+  return novaReq(`/usecase/${usecaseId}/steps`);
 }
 
 export function createStep(
   usecaseId: string,
   body: Partial<Step>,
 ): Promise<Step> {
-  return req(`/usecase/${usecaseId}/steps`, {
+  return novaReq(`/usecase/${usecaseId}/steps`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
@@ -144,7 +161,7 @@ export function updateStep(
   stepId: string,
   body: Partial<Step>,
 ): Promise<{ status: string }> {
-  return req(`/usecase/${usecaseId}/steps/${stepId}`, {
+  return novaReq(`/usecase/${usecaseId}/steps/${stepId}`, {
     method: 'PATCH',
     body: JSON.stringify(body),
   });
@@ -154,14 +171,14 @@ export function deleteStep(
   usecaseId: string,
   stepId: string,
 ): Promise<{ status: string }> {
-  return req(`/usecase/${usecaseId}/steps/${stepId}`, { method: 'DELETE' });
+  return novaReq(`/usecase/${usecaseId}/steps/${stepId}`, { method: 'DELETE' });
 }
 
 export function reorderSteps(
   usecaseId: string,
   stepOrders: Array<{ step_id: string; sort: number }>,
 ): Promise<{ count: number }> {
-  return req(`/usecase/${usecaseId}/steps/reorder`, {
+  return novaReq(`/usecase/${usecaseId}/steps/reorder`, {
     method: 'PATCH',
     body: JSON.stringify({ step_orders: stepOrders }),
   });
@@ -170,29 +187,29 @@ export function reorderSteps(
 // ---- Use-case config: variables & secrets (§3) ----
 
 export function getVariables(usecaseId: string): Promise<{ variables: Variable[] }> {
-  return req(`/usecase/${usecaseId}/variables`);
+  return novaReq(`/usecase/${usecaseId}/variables`);
 }
 
 export function putVariables(usecaseId: string, variables: Variable[]): Promise<{ variables: Variable[] }> {
-  return req(`/usecase/${usecaseId}/variables`, {
+  return novaReq(`/usecase/${usecaseId}/variables`, {
     method: 'POST',
     body: JSON.stringify({ variables }),
   });
 }
 
 export function getHeaders(usecaseId: string): Promise<{ headers: Header[] }> {
-  return req(`/usecase/${usecaseId}/headers`);
+  return novaReq(`/usecase/${usecaseId}/headers`);
 }
 
 export function putHeaders(usecaseId: string, headers: Header[]): Promise<{ headers: Header[] }> {
-  return req(`/usecase/${usecaseId}/headers`, {
+  return novaReq(`/usecase/${usecaseId}/headers`, {
     method: 'POST',
     body: JSON.stringify({ headers }),
   });
 }
 
 export function listSecrets(usecaseId: string): Promise<{ secrets: SecretMeta[] }> {
-  return req(`/usecase/${usecaseId}/secrets`);
+  return novaReq(`/usecase/${usecaseId}/secrets`);
 }
 
 /** Create (or upsert) one secret. The API accepts a batch; we send one at a time. */
@@ -200,21 +217,21 @@ export function createSecret(
   usecaseId: string,
   secret: { key: string; value: string; description?: string },
 ): Promise<{ count: number }> {
-  return req(`/usecase/${usecaseId}/secrets`, {
+  return novaReq(`/usecase/${usecaseId}/secrets`, {
     method: 'POST',
     body: JSON.stringify({ secrets: [secret] }),
   });
 }
 
 export function updateSecret(usecaseId: string, secretKey: string, value: string): Promise<{ secret_key: string }> {
-  return req(`/usecase/${usecaseId}/secrets`, {
+  return novaReq(`/usecase/${usecaseId}/secrets`, {
     method: 'PATCH',
     body: JSON.stringify({ secret_key: secretKey, value }),
   });
 }
 
 export function deleteSecret(usecaseId: string, secretKey: string): Promise<{ secret_key: string }> {
-  return req(`/usecase/${usecaseId}/secrets`, {
+  return novaReq(`/usecase/${usecaseId}/secrets`, {
     method: 'DELETE',
     body: JSON.stringify({ secret_key: secretKey }),
   });
@@ -291,4 +308,26 @@ export function changeOwnPassword(
     method: 'POST',
     body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
   });
+}
+
+// ---- Personal access tokens (self-service, CLI auth) ----
+
+export function listTokens(): Promise<{ tokens: Token[] }> {
+  return req('/me/tokens');
+}
+
+/** Create a PAT. The raw token value is returned once, in `token`. */
+export function createToken(
+  name: string,
+  description: string,
+  expiresInDays?: number,
+): Promise<CreatedToken> {
+  return req('/me/tokens', {
+    method: 'POST',
+    body: JSON.stringify({ name, description, expiresInDays }),
+  });
+}
+
+export function revokeToken(id: string): Promise<{ status: string; id: string }> {
+  return req(`/me/tokens/${id}`, { method: 'DELETE' });
 }
