@@ -19,6 +19,7 @@ import Toggle from '@cloudscape-design/components/toggle';
 import Modal from '@cloudscape-design/components/modal';
 import Select from '@cloudscape-design/components/select';
 import AppChrome from '../../components/AppChrome';
+import ExecutionHistoryTab from './ExecutionHistoryTab';
 import { QA_STUDIO_NAV, QA_STUDIO_APP_NAME } from '../../config/qaStudioNav';
 import { useAuth } from '../../lib/auth';
 import { hasScope } from '../../types';
@@ -158,6 +159,7 @@ export default function UseCaseDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const canWrite = hasScope(user, 'api/nova/usecases.write');
+  const canManageExec = hasScope(user, 'api/nova/executions.write');
 
   const [usecase, setUsecase] = useState<Usecase | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -255,7 +257,10 @@ export default function UseCaseDetail() {
                   label: 'Headers',
                   content: <HeadersTab usecaseId={id} canWrite={canWrite} onFlash={flash} onError={(m) => flash('error', m)} />,
                 },
-                { id: 'exec', label: 'Execution History', content: <ComingSoon />, disabled: true },
+                {
+                  id: 'exec', label: 'Execution History',
+                  content: <ExecutionHistoryTab usecaseId={id} canWrite={canManageExec} onFlash={flash} onError={(m) => flash('error', m)} />,
+                },
                 { id: 'sched', label: 'Schedule', content: <ComingSoon />, disabled: true },
                 { id: 'hooks', label: 'Hooks', content: <ComingSoon />, disabled: true },
               ]}
@@ -632,6 +637,7 @@ function DetailsTab({ usecase, canWrite, onSaved, onError }: { usecase: Usecase;
   return (
     <Container>
       <SpaceBetween size="m">
+        <FormField label="Use case ID" description="System-assigned, read-only."><Input value={usecase.id} disabled readOnly /></FormField>
         <FormField label="Name"><Input value={name} readOnly={ro} onChange={({ detail }) => setName(detail.value)} /></FormField>
         <FormField label="Description"><Textarea value={description} readOnly={ro} onChange={({ detail }) => setDescription(detail.value)} /></FormField>
         <FormField label="Starting URL"><Input value={startingUrl} readOnly={ro} onChange={({ detail }) => setStartingUrl(detail.value)} /></FormField>

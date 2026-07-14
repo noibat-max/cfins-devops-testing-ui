@@ -7,6 +7,7 @@ import Button from '@cloudscape-design/components/button';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import TextFilter from '@cloudscape-design/components/text-filter';
 import Badge from '@cloudscape-design/components/badge';
+import Icon from '@cloudscape-design/components/icon';
 import StatusIndicator from '@cloudscape-design/components/status-indicator';
 import Spinner from '@cloudscape-design/components/spinner';
 import Flashbar, { type FlashbarProps } from '@cloudscape-design/components/flashbar';
@@ -69,7 +70,7 @@ export default function UseCasesList() {
     const list = items ?? [];
     if (!q) return list;
     return list.filter((u) =>
-      [u.name, u.description, (u.tags ?? []).join(' ')].some((s) =>
+      [u.name, u.description, u.id, u.starting_url, (u.tags ?? []).join(' ')].some((s) =>
         (s ?? '').toLowerCase().includes(q),
       ),
     );
@@ -186,6 +187,30 @@ export default function UseCasesList() {
                           {u.description || (
                             <span className="uc-card-desc--empty">No description</span>
                           )}
+                        </div>
+
+                        <div className="uc-card-url" title={u.starting_url || undefined}>
+                          <Icon name="external" size="small" />{' '}
+                          {u.starting_url || (
+                            <span className="uc-card-desc--empty">No starting URL</span>
+                          )}
+                        </div>
+
+                        {/* Use case id + copy — stopPropagation so it doesn't open the card */}
+                        <div className="uc-card-id" onClick={(e) => e.stopPropagation()}>
+                          <span className="uc-card-id-label">ID</span>
+                          <code className="uc-card-id-val" title={u.id}>{u.id}</code>
+                          <Button
+                            variant="inline-icon"
+                            iconName="copy"
+                            ariaLabel={`Copy ID for ${u.name || 'use case'}`}
+                            onClick={() =>
+                              navigator.clipboard?.writeText(u.id).then(
+                                () => flash('success', 'Use case ID copied'),
+                                () => flash('error', 'Copy failed'),
+                              )
+                            }
+                          />
                         </div>
 
                         <Box fontSize="body-s" color="text-body-secondary">

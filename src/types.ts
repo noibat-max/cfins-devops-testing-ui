@@ -136,3 +136,45 @@ export interface Token {
 
 /** Create response: the metadata plus the one-time raw token value. */
 export type CreatedToken = Token & { token: string };
+
+// ---- Executions (§5 run history) ----
+
+/** One run of a use case. Local (CLI) and remote both produce these. */
+export interface Execution {
+  executionId: string;
+  usecaseId: string;
+  status: 'pending' | 'executing' | 'completed' | 'failed' | 'stopped' | string;
+  mode: string;
+  trigger?: string;
+  createdBy?: string;
+  createdAt: string;
+  startedAt?: string;
+  endedAt?: string;
+  errorMessage?: string;
+  stopRequested?: boolean;
+}
+
+/** Per-step result within a run (upserted live by the runner's callbacks). */
+export interface ExecutionStep {
+  stepId: string;
+  sort: number;
+  status: 'pending' | 'executing' | 'passed' | 'failed' | string;
+  startedAt?: string;
+  endedAt?: string;
+  errorMessage?: string;
+  result?: string;
+  updatedAt?: string;
+}
+
+/** A run artifact in S3; `url` is a short-lived presigned GET for finished uploads. */
+export interface Artifact {
+  artifactId: string;
+  artifactType: string; // screenshot | trace | video | ...
+  filename: string;
+  contentType: string;
+  stepId?: string;
+  status: string;
+  sizeBytes?: number;
+  createdAt: string;
+  url?: string;
+}

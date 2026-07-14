@@ -1,7 +1,10 @@
 import type {
   AdminUser,
+  Artifact,
   AuthResponse,
   CreatedToken,
+  Execution,
+  ExecutionStep,
   Group,
   Header,
   ScopeInfo,
@@ -118,6 +121,26 @@ export function updateUsecase(
 
 export function deleteUsecase(id: string): Promise<{ status: string }> {
   return novaReq(`/usecase/${id}`, { method: 'DELETE' });
+}
+
+// ---- Executions (§5 run history) ----
+export function listExecutions(usecaseId: string): Promise<{ executions: Execution[] }> {
+  return novaReq(`/usecase/${usecaseId}/executions`);
+}
+export function getExecution(usecaseId: string, eid: string): Promise<Execution> {
+  return novaReq(`/usecase/${usecaseId}/executions/${eid}`);
+}
+export function listExecutionSteps(usecaseId: string, eid: string): Promise<{ steps: ExecutionStep[] }> {
+  return novaReq(`/usecase/${usecaseId}/executions/${eid}/steps`);
+}
+export function listArtifacts(usecaseId: string, eid: string): Promise<{ artifacts: Artifact[] }> {
+  return novaReq(`/usecase/${usecaseId}/executions/${eid}/artifacts`);
+}
+export function stopExecution(usecaseId: string, eid: string): Promise<{ status: string }> {
+  return novaReq(`/usecase/${usecaseId}/executions/${eid}/stop`, { method: 'POST' });
+}
+export function deleteExecution(usecaseId: string, eid: string): Promise<{ status: string }> {
+  return novaReq(`/usecase/${usecaseId}/executions/${eid}`, { method: 'DELETE' });
 }
 
 export function exportUsecase(id: string): Promise<UsecaseExport> {
