@@ -15,8 +15,13 @@ import Badge from '@cloudscape-design/components/badge';
 import ColumnLayout from '@cloudscape-design/components/column-layout';
 import Container from '@cloudscape-design/components/container';
 import Link from '@cloudscape-design/components/link';
+import ProgressBar from '@cloudscape-design/components/progress-bar';
+import Alert from '@cloudscape-design/components/alert';
 import * as api from '../../lib/api';
-import type { Artifact, Execution, ExecutionStep } from '../../types';
+import type { Artifact, Execution, ExecutionStep, Step } from '../../types';
+
+// Rough $ saved per Nova Act "act" call that a cache hit replays instead of re-invoking.
+const COST_PER_ACT = 0.02;
 
 type Flash = (type: 'success' | 'error' | 'info' | 'warning', content: string) => void;
 
@@ -204,19 +209,24 @@ function ExecutionDetailModal({
   const [exec, setExec] = useState<Execution | null>(null);
   const [steps, setSteps] = useState<ExecutionStep[] | null>(null);
   const [artifacts, setArtifacts] = useState<Artifact[] | null>(null);
+  // Use-case steps carry step_type (execution steps don't), so we join by id to
+  // identify which steps are cacheable "navigation" steps for the cache panel.
+  const [stepTypeById, setStepTypeById] = useState<Record<string, string>>({});
   const closedRef = useRef(false);
 
   const load = useCallback(async () => {
     try {
-      const [e, s, a] = await Promise.all([
+      const [e, s, a, uc] = await Promise.all([
         api.getExecution(usecaseId, eid),
         api.listExecutionSteps(usecaseId, eid),
         api.listArtifacts(usecaseId, eid),
+        api.listSteps(usecaseId).catch(() => ({ steps: [] as Step[] })),
       ]);
       if (closedRef.current) return;
       setExec(e);
       setSteps([...s.steps].sort((x, y) => (x.sort ?? 0) - (y.sort ?? 0)));
       setArtifacts(a.artifacts);
+      setStepTypeById(Object.fromEntries(uc.steps.map((st) => [st.id, st.step_type])));
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Failed to load execution');
     }
@@ -262,6 +272,9 @@ function ExecutionDetailModal({
               <Box margin={{ top: 's' }} color="text-status-error">{exec.errorMessage}</Box>
             )}
           </Container>
+
+          {/* Cache performance */}
+          <CachePerformance execSteps={steps ?? []} stepTypeById={stepTypeById} />
 
           {/* Steps */}
           <Table<ExecutionStep>
@@ -335,5 +348,88 @@ function ExecutionDetailModal({
         </SpaceBetween>
       )}
     </Modal>
+  );
+}
+
+// --- Cache Performance panel ------------------------------------------------
+// Cache replay lets successful *navigation* steps re-run from a recorded
+// definition (Playwright) instead of re-invoking Nova Act — saving time + cost.
+// The panel is data-driven from per-step cacheStatus; until the cache-replay
+// engine records hits, every navigation step reads as "no cache yet".
+function secBetween(a?: string, b?: string): number {
+  if (!a || !b) return 0;
+  const ms = new Date(b).getTime() - new Date(a).getTime();
+  return Number.isFinite(ms) && ms > 0 ? ms / 1000 : 0;
+}
+
+function CachePerformance({ execSteps, stepTypeById }: {
+  execSteps: ExecutionStep[]; stepTypeById: Record<string, string>;
+}) {
+  const nav = execSteps.filter((s) => stepTypeById[s.stepId] === 'navigation');
+  const total = nav.length;
+  if (total === 0) return null; // nothing cacheable in this run
+
+  const isHit = (s: ExecutionStep) => s.cacheStatus === 'hit' || s.cacheStatus === 'cached';
+  const isFail = (s: ExecutionStep) => s.cacheStatus === 'failed';
+  const hits = nav.filter(isHit);
+  const failures = nav.filter(isFail).length;
+  const noCacheYet = total - hits.length - failures;
+  const hitRate = Math.round((hits.length / total) * 100);
+  const relDen = hits.length + failures;
+  const reliability = relDen ? Math.round((hits.length / relDen) * 100) : 0;
+  const timeSaved = Math.round(hits.reduce((a, s) => a + secBetween(s.startedAt, s.endedAt), 0));
+  const costSaved = hits.length * COST_PER_ACT;
+
+  const message = hits.length > 0
+    ? `Replayed ${hits.length} of ${total} navigation step(s) from cache — saved ~${timeSaved}s and ~$${costSaved.toFixed(3)}.`
+    : 'No cached replay used — navigation steps ran fresh via Nova Act. Cache replay is not enabled yet, so no time or cost was saved.';
+
+  return (
+    <Container header={
+      <Header variant="h3" description="Cache replay performance for navigation steps in this execution">
+        Cache Performance
+      </Header>
+    }>
+      <SpaceBetween size="l">
+        <div>
+          <Box variant="awsui-key-label">Cache hit rate</Box>
+          <Box fontSize="body-s" color="text-body-secondary" margin={{ bottom: 'xs' }}>
+            {hits.length} of {total} navigation steps used cached replay
+          </Box>
+          <ProgressBar value={hitRate} additionalInfo={`Estimated time saved: ~${timeSaved}s`} />
+        </div>
+        <ColumnLayout columns={5} variant="text-grid">
+          <Metric label="Cache hits" value={hits.length} sub={`${hitRate}%`} tone="good" />
+          <Metric label="Cache failures" value={failures} tone={failures ? 'bad' : undefined} />
+          <Metric label="No cache yet" value={noCacheYet} />
+          <Metric
+            label="Cache reliability"
+            value={`${reliability}%`}
+            sub={relDen ? (reliability >= 80 ? 'good' : 'poor') : undefined}
+            tone={relDen ? (reliability >= 80 ? 'good' : 'bad') : undefined}
+          />
+          <Metric
+            label="Est. cost saved"
+            value={`~$${costSaved.toFixed(3)}`}
+            sub={`${hits.length} calls · ~${timeSaved}s agent time`}
+            tone="good"
+          />
+        </ColumnLayout>
+        <Alert type={hits.length > 0 ? 'success' : 'info'}>{message}</Alert>
+      </SpaceBetween>
+    </Container>
+  );
+}
+
+function Metric({ label, value, sub, tone }: {
+  label: string; value: string | number; sub?: string; tone?: 'good' | 'bad';
+}) {
+  const color = tone === 'good' ? 'text-status-success' : tone === 'bad' ? 'text-status-error' : undefined;
+  return (
+    <div>
+      <Box variant="awsui-key-label">{label}</Box>
+      <Box fontSize="heading-l" fontWeight="bold" color={color as never}>{value}</Box>
+      {sub && <Box fontSize="body-s" color="text-body-secondary">{sub}</Box>}
+    </div>
   );
 }

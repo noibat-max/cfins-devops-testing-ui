@@ -164,6 +164,9 @@ export interface ExecutionStep {
   errorMessage?: string;
   result?: string;
   updatedAt?: string;
+  /** Cache-replay outcome for navigation steps: hit | cached | failed | (absent = no cache).
+   *  Set by the cache-replay engine once ported; drives the Cache Performance panel. */
+  cacheStatus?: string;
 }
 
 /** A run artifact in S3; `url` is a short-lived presigned GET for finished uploads. */
