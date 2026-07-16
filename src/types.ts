@@ -183,3 +183,22 @@ export interface Artifact {
   createdAt: string;
   url?: string;
 }
+
+// ---- Audit log (workbench governance) ----
+
+/** One recorded mutating action. `body` is a redacted JSON string. */
+export interface AuditEvent {
+  id: string;
+  timestamp: string;
+  actor: string;
+  action: string; // create | update | delete | login | change-password | ...
+  method: string;
+  path: string;
+  query: string;
+  body: string; // redacted JSON payload (or "" / "<non-JSON body>")
+  status: number;
+  outcome: 'success' | 'failure';
+  ip: string;
+  correlationId: string;
+  env: string;
+}

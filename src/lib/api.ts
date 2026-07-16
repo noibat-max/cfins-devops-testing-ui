@@ -1,6 +1,7 @@
 import type {
   AdminUser,
   Artifact,
+  AuditEvent,
   AuthResponse,
   CreatedToken,
   Execution,
@@ -353,4 +354,23 @@ export function createToken(
 
 export function revokeToken(id: string): Promise<{ status: string; id: string }> {
   return req(`/me/tokens/${id}`, { method: 'DELETE' });
+}
+
+// ---- Audit log (admin) ----
+
+export function listAudit(params: {
+  user?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  cursor?: string;
+}): Promise<{ items: AuditEvent[]; nextCursor: string | null }> {
+  const q = new URLSearchParams();
+  if (params.user) q.set('user', params.user);
+  if (params.from) q.set('from', params.from);
+  if (params.to) q.set('to', params.to);
+  if (params.limit) q.set('limit', String(params.limit));
+  if (params.cursor) q.set('cursor', params.cursor);
+  const qs = q.toString();
+  return req(`/audit${qs ? `?${qs}` : ''}`);
 }

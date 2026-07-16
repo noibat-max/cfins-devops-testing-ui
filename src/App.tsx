@@ -9,6 +9,7 @@ import UseCasesList from './pages/qastudio/UseCasesList';
 import UseCaseDetail from './pages/qastudio/UseCaseDetail';
 import UsersAdmin from './pages/admin/UsersAdmin';
 import GroupsAdmin from './pages/admin/GroupsAdmin';
+import AuditLogs from './pages/admin/AuditLogs';
 import TokensSettings from './pages/settings/TokensSettings';
 
 export default function App() {
@@ -69,6 +70,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <GroupsAdmin />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/audit"
+        element={
+          <ProtectedRoute>
+            <AuditLogs />
           </ProtectedRoute>
         }
       />
