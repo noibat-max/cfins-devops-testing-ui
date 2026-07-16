@@ -6,7 +6,6 @@ import Tabs from '@cloudscape-design/components/tabs';
 import Table from '@cloudscape-design/components/table';
 import Box from '@cloudscape-design/components/box';
 import Button from '@cloudscape-design/components/button';
-import ButtonDropdown from '@cloudscape-design/components/button-dropdown';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import Badge from '@cloudscape-design/components/badge';
 import Spinner from '@cloudscape-design/components/spinner';
@@ -164,6 +163,8 @@ export default function UseCaseDetail() {
   const [usecase, setUsecase] = useState<Usecase | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [flashes, setFlashes] = useState<FlashbarProps.MessageDefinition[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const flash = useCallback((type: FlashbarProps.Type, content: string) => {
     const fid = `${Date.now()}-${Math.random()}`;
@@ -194,8 +195,9 @@ export default function UseCaseDetail() {
   }
 
   const onDelete = async () => {
+    setDeleting(true);
     try { await api.deleteUsecase(id); navigate(USECASES_BASE); }
-    catch (e) { flash('error', e instanceof Error ? e.message : 'Delete failed'); }
+    catch (e) { flash('error', e instanceof Error ? e.message : 'Delete failed'); setDeleting(false); setConfirmDelete(false); }
   };
 
   return (
@@ -206,22 +208,20 @@ export default function UseCaseDetail() {
             <Header
               variant="h1"
               actions={
-                <SpaceBetween direction="horizontal" size="xs">
-                  <Button iconName="arrow-left" onClick={() => navigate(USECASES_BASE)}>Back</Button>
-                  {canWrite && (
-                    <ButtonDropdown
-                      items={[
-                        { id: 'delete', text: 'Delete' },
-                      ]}
-                      onItemClick={({ detail }) => { if (detail.id === 'delete') onDelete(); }}
-                    >
-                      Actions
-                    </ButtonDropdown>
-                  )}
-                </SpaceBetween>
+                canWrite && (
+                  <span className="wb-danger-fill">
+                    <Button iconName="remove" onClick={() => setConfirmDelete(true)}>Delete</Button>
+                  </span>
+                )
               }
               info={<Badge color={usecase.active ? 'green' : 'grey'}>{usecase.active ? 'Active' : 'Inactive'}</Badge>}
             >
+              <Button
+                variant="inline-icon"
+                iconName="arrow-left"
+                ariaLabel="Back to use cases"
+                onClick={() => navigate(USECASES_BASE)}
+              />{' '}
               {usecase.name || '(untitled)'}
             </Header>
           </Box>
@@ -268,6 +268,23 @@ export default function UseCaseDetail() {
           </SpaceBetween>
         </Box>
       </ContentLayout>
+      {confirmDelete && (
+        <Modal
+          visible
+          onDismiss={() => setConfirmDelete(false)}
+          header="Delete use case"
+          footer={
+            <Box float="right">
+              <SpaceBetween direction="horizontal" size="xs">
+                <Button variant="link" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                <span className="wb-danger-fill"><Button iconName="remove" loading={deleting} onClick={onDelete}>Delete</Button></span>
+              </SpaceBetween>
+            </Box>
+          }
+        >
+          Delete <b>{usecase.name || 'this use case'}</b>? This permanently removes the use case, its steps, and all execution history &amp; artifacts. This cannot be undone.
+        </Modal>
+      )}
     </AppChrome>
   );
 }
@@ -318,38 +335,46 @@ function VariablesTab({ usecaseId, canWrite, onFlash, onError }: {
   if (rows === null) return <Box textAlign="center" padding="l"><Spinner /></Box>;
 
   return (
-    <SpaceBetween size="m">
-      <Box color="text-body-secondary" fontSize="body-s">
-        Variables are substituted into step text as <code>{'{{key}}'}</code>. Reserved built-ins are provided automatically at run time: <code>{'{{UniqueID}}'}</code>, <code>{'{{Time}}'}</code>, <code>{'{{ExecutionID}}'}</code>.
-      </Box>
-      {rows.length === 0 && <Box color="text-body-secondary">No variables yet.</Box>}
-      {rows.map((r, i) => (
-        <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-          <div style={{ flex: '0 0 260px' }}>
-            <FormField errorText={varNameError(r.key.trim())}>
-              <Input value={r.key} disabled={!canWrite} placeholder="snake_case key" onChange={({ detail }) => setRow(i, { key: detail.value })} />
-            </FormField>
+    <Container
+      header={
+        <Header
+          counter={`(${rows.length})`}
+          description={<>Variables are substituted into step text as <code>{'{{key}}'}</code>. Reserved built-ins are provided automatically at run time: <code>{'{{UniqueID}}'}</code>, <code>{'{{Time}}'}</code>, <code>{'{{ExecutionID}}'}</code>.</>}
+          actions={canWrite ? (
+            <SpaceBetween direction="horizontal" size="xs">
+              <Button variant="link" iconName="add-plus" onClick={addRow}>Add</Button>
+              <Button variant="primary" loading={saving} disabled={!canSave} onClick={save}>Save</Button>
+            </SpaceBetween>
+          ) : undefined}
+        >
+          Variables
+        </Header>
+      }
+    >
+      <SpaceBetween size="m">
+        {rows.length === 0 && <Box color="text-body-secondary">No variables yet.</Box>}
+        {rows.map((r, i) => (
+          <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{ flex: '0 0 260px' }}>
+              <FormField errorText={varNameError(r.key.trim())}>
+                <Input value={r.key} disabled={!canWrite} placeholder="snake_case key" onChange={({ detail }) => setRow(i, { key: detail.value })} />
+              </FormField>
+            </div>
+            <div style={{ flex: 1 }}>
+              <FormField errorText={r.key.trim() && !r.value.trim() ? 'Value is required' : undefined}>
+                <Input value={r.value} disabled={!canWrite} placeholder="value" onChange={({ detail }) => setRow(i, { value: detail.value })} />
+              </FormField>
+            </div>
+            {canWrite && <span className="wb-danger" style={{ paddingTop: 4 }}><Button variant="icon" iconName="remove" ariaLabel="Remove variable" onClick={() => removeRow(i)} /></span>}
           </div>
-          <div style={{ flex: 1 }}>
-            <FormField errorText={r.key.trim() && !r.value.trim() ? 'Value is required' : undefined}>
-              <Input value={r.value} disabled={!canWrite} placeholder="value" onChange={({ detail }) => setRow(i, { value: detail.value })} />
-            </FormField>
-          </div>
-          {canWrite && <span className="wb-danger" style={{ paddingTop: 4 }}><Button variant="icon" iconName="remove" ariaLabel="Remove variable" onClick={() => removeRow(i)} /></span>}
-        </div>
-      ))}
-      {(hasEmpty || hasEmptyValue || hasDup) && (
-        <Box color="text-status-error" fontSize="body-s">
-          {hasEmpty ? 'Every variable needs a key. ' : ''}{hasEmptyValue ? 'Every variable needs a value. ' : ''}{hasDup ? 'Keys must be unique.' : ''}
-        </Box>
-      )}
-      {canWrite && (
-        <SpaceBetween direction="horizontal" size="xs">
-          <Button iconName="add-plus" onClick={addRow}>Add variable</Button>
-          <Button variant="primary" loading={saving} disabled={!canSave} onClick={save}>Save</Button>
-        </SpaceBetween>
-      )}
-    </SpaceBetween>
+        ))}
+        {(hasEmpty || hasEmptyValue || hasDup) && (
+          <Box color="text-status-error" fontSize="body-s">
+            {hasEmpty ? 'Every variable needs a key. ' : ''}{hasEmptyValue ? 'Every variable needs a value. ' : ''}{hasDup ? 'Keys must be unique.' : ''}
+          </Box>
+        )}
+      </SpaceBetween>
+    </Container>
   );
 }
 
@@ -393,38 +418,46 @@ function HeadersTab({ usecaseId, canWrite, onFlash, onError }: {
   if (rows === null) return <Box textAlign="center" padding="l"><Spinner /></Box>;
 
   return (
-    <SpaceBetween size="m">
-      <Box color="text-body-secondary" fontSize="body-s">
-        Custom HTTP headers are injected into every request the browser makes. Values support <code>{'{{variables}}'}</code> and built-ins (resolved at run time) — so a token captured earlier can flow into e.g. <code>Authorization</code>.
-      </Box>
-      {rows.length === 0 && <Box color="text-body-secondary">No headers yet.</Box>}
-      {rows.map((r, i) => (
-        <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-          <div style={{ flex: '0 0 260px' }}>
-            <FormField errorText={headerNameError(r.name.trim())}>
-              <Input value={r.name} disabled={!canWrite} placeholder="Header name" onChange={({ detail }) => setRow(i, { name: detail.value })} />
-            </FormField>
+    <Container
+      header={
+        <Header
+          counter={`(${rows.length})`}
+          description={<>Custom HTTP headers are injected into every request the browser makes. Values support <code>{'{{variables}}'}</code> and built-ins (resolved at run time) — so a token captured earlier can flow into e.g. <code>Authorization</code>.</>}
+          actions={canWrite ? (
+            <SpaceBetween direction="horizontal" size="xs">
+              <Button variant="link" iconName="add-plus" onClick={addRow}>Add</Button>
+              <Button variant="primary" loading={saving} disabled={!canSave} onClick={save}>Save</Button>
+            </SpaceBetween>
+          ) : undefined}
+        >
+          Headers
+        </Header>
+      }
+    >
+      <SpaceBetween size="m">
+        {rows.length === 0 && <Box color="text-body-secondary">No headers yet.</Box>}
+        {rows.map((r, i) => (
+          <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{ flex: '0 0 260px' }}>
+              <FormField errorText={headerNameError(r.name.trim())}>
+                <Input value={r.name} disabled={!canWrite} placeholder="Header name" onChange={({ detail }) => setRow(i, { name: detail.value })} />
+              </FormField>
+            </div>
+            <div style={{ flex: 1 }}>
+              <FormField errorText={r.name.trim() && !r.value.trim() ? 'Value is required' : undefined}>
+                <Input value={r.value} disabled={!canWrite} placeholder="Value (supports {{variables}})" onChange={({ detail }) => setRow(i, { value: detail.value })} />
+              </FormField>
+            </div>
+            {canWrite && <span className="wb-danger" style={{ paddingTop: 4 }}><Button variant="icon" iconName="remove" ariaLabel="Remove header" onClick={() => removeRow(i)} /></span>}
           </div>
-          <div style={{ flex: 1 }}>
-            <FormField errorText={r.name.trim() && !r.value.trim() ? 'Value is required' : undefined}>
-              <Input value={r.value} disabled={!canWrite} placeholder="Value (supports {{variables}})" onChange={({ detail }) => setRow(i, { value: detail.value })} />
-            </FormField>
-          </div>
-          {canWrite && <span className="wb-danger" style={{ paddingTop: 4 }}><Button variant="icon" iconName="remove" ariaLabel="Remove header" onClick={() => removeRow(i)} /></span>}
-        </div>
-      ))}
-      {(hasEmpty || hasEmptyValue || hasDup) && (
-        <Box color="text-status-error" fontSize="body-s">
-          {hasEmpty ? 'Every header needs a name. ' : ''}{hasEmptyValue ? 'Every header needs a value. ' : ''}{hasDup ? 'Header names must be unique.' : ''}
-        </Box>
-      )}
-      {canWrite && (
-        <SpaceBetween direction="horizontal" size="xs">
-          <Button iconName="add-plus" onClick={addRow}>Add header</Button>
-          <Button variant="primary" loading={saving} disabled={!canSave} onClick={save}>Save</Button>
-        </SpaceBetween>
-      )}
-    </SpaceBetween>
+        ))}
+        {(hasEmpty || hasEmptyValue || hasDup) && (
+          <Box color="text-status-error" fontSize="body-s">
+            {hasEmpty ? 'Every header needs a name. ' : ''}{hasEmptyValue ? 'Every header needs a value. ' : ''}{hasDup ? 'Header names must be unique.' : ''}
+          </Box>
+        )}
+      </SpaceBetween>
+    </Container>
   );
 }
 
@@ -467,7 +500,7 @@ function SecretsTab({ usecaseId, canWrite, onFlash, onError }: {
             actions={
               <SpaceBetween direction="horizontal" size="xs">
                 <Button variant="icon" iconName="refresh" ariaLabel="Refresh" onClick={load} />
-                {canWrite && <Button variant="primary" iconName="add-plus" onClick={() => setShowAdd(true)}>Add secret</Button>}
+                {canWrite && <Button variant="link" iconName="add-plus" onClick={() => setShowAdd(true)}>Add</Button>}
               </SpaceBetween>
             }
           >
@@ -663,6 +696,8 @@ function StepsTab({ usecaseId, canWrite, onError }: { usecaseId: string; canWrit
   const [showAdd, setShowAdd] = useState(false);
   const [showCommands, setShowCommands] = useState(false);
   const [reordering, setReordering] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Step | null>(null);
+  const [deletingStep, setDeletingStep] = useState(false);
 
   const load = useCallback(() => {
     api.listSteps(usecaseId).then((r) => setSteps(r.steps)).catch((e: unknown) => onError(e instanceof Error ? e.message : 'Failed to load steps'));
@@ -699,8 +734,10 @@ function StepsTab({ usecaseId, canWrite, onError }: { usecaseId: string; canWrit
   };
 
   const remove = async (s: Step) => {
-    try { await api.deleteStep(usecaseId, s.id); load(); }
+    setDeletingStep(true);
+    try { await api.deleteStep(usecaseId, s.id); setDeleteTarget(null); load(); }
     catch (e) { onError(e instanceof Error ? e.message : 'Delete failed'); }
+    finally { setDeletingStep(false); }
   };
 
   return (
@@ -743,7 +780,7 @@ function StepsTab({ usecaseId, canWrite, onError }: { usecaseId: string; canWrit
                   <Button variant="inline-icon" iconName="angle-down" disabled={reordering || !steps || i >= steps.length - 1} ariaLabel="Move down" onClick={() => move(i, 1)} />
                   <Button variant="inline-icon" iconName="edit" ariaLabel="Edit" onClick={() => { loadSecrets(); loadVars(); setEditStep(s); }} />
                   <span className="wb-danger">
-                    <Button variant="inline-icon" iconName="remove" ariaLabel="Delete" onClick={() => remove(s)} />
+                    <Button variant="inline-icon" iconName="remove" ariaLabel="Delete" onClick={() => setDeleteTarget(s)} />
                   </span>
                 </SpaceBetween>
               );
@@ -776,6 +813,23 @@ function StepsTab({ usecaseId, canWrite, onError }: { usecaseId: string; canWrit
         />
       )}
       {showCommands && <NovaCommandsModal steps={steps ?? []} onClose={() => setShowCommands(false)} />}
+      {deleteTarget && (
+        <Modal
+          visible
+          onDismiss={() => setDeleteTarget(null)}
+          header="Delete step"
+          footer={
+            <Box float="right">
+              <SpaceBetween direction="horizontal" size="xs">
+                <Button variant="link" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+                <span className="wb-danger-fill"><Button iconName="remove" loading={deletingStep} onClick={() => remove(deleteTarget)}>Delete</Button></span>
+              </SpaceBetween>
+            </Box>
+          }
+        >
+          Delete step {deleteTarget.sort} (<b>{deleteTarget.step_type}</b>)? This cannot be undone.
+        </Modal>
+      )}
     </>
   );
 }

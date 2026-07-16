@@ -14,6 +14,7 @@ import Spinner from '@cloudscape-design/components/spinner';
 import Badge from '@cloudscape-design/components/badge';
 import ColumnLayout from '@cloudscape-design/components/column-layout';
 import Container from '@cloudscape-design/components/container';
+import Tabs from '@cloudscape-design/components/tabs';
 import Link from '@cloudscape-design/components/link';
 import ProgressBar from '@cloudscape-design/components/progress-bar';
 import Alert from '@cloudscape-design/components/alert';
@@ -100,12 +101,6 @@ export default function ExecutionHistoryTab({
     return () => clearInterval(t);
   }, [anyInFlight, load]);
 
-  const onStop = async (e: Execution) => {
-    setBusy(true);
-    try { await api.stopExecution(usecaseId, e.executionId); onFlash('info', 'Stop requested'); load(); }
-    catch (err) { onError(err instanceof Error ? err.message : 'Stop failed'); }
-    finally { setBusy(false); }
-  };
   const onDelete = async () => {
     if (!confirmDelete) return;
     setBusy(true);
@@ -139,13 +134,21 @@ export default function ExecutionHistoryTab({
           <Header
             counter={execs ? `(${execs.length})` : undefined}
             actions={
-              <Button iconName="refresh" onClick={load} loading={busy}>Refresh</Button>
+              <Button variant="link" iconName="refresh" ariaLabel="Refresh" onClick={load} loading={busy} />
             }
           >
             Execution History {anyInFlight && <Spinner size="normal" />}
           </Header>
         }
         columnDefinitions={[
+          {
+            id: 'eid', header: 'Execution ID', isRowHeader: true,
+            cell: (e) => (
+              <Button variant="inline-link" onClick={() => setSelected(e.executionId)}>
+                <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' }}>{e.executionId}</span>
+              </Button>
+            ),
+          },
           {
             id: 'status', header: 'Status',
             cell: (e) => { const s = execStatus(e.status); return <StatusIndicator type={s.type}>{s.label}</StatusIndicator>; },
@@ -156,17 +159,9 @@ export default function ExecutionHistoryTab({
           { id: 'by', header: 'Run by', cell: (e) => e.createdBy || '—' },
           {
             id: 'actions', header: 'Actions',
-            cell: (e) => (
-              <SpaceBetween direction="horizontal" size="xs">
-                <Button variant="inline-link" onClick={() => setSelected(e.executionId)}>View</Button>
-                {canWrite && isInFlight(e.status) && (
-                  <Button variant="inline-link" onClick={() => onStop(e)}>Stop</Button>
-                )}
-                {canWrite && (
-                  <Button variant="inline-link" onClick={() => setConfirmDelete(e)}>Delete</Button>
-                )}
-              </SpaceBetween>
-            ),
+            cell: (e) => (canWrite ? (
+              <span className="wb-danger"><Button variant="inline-icon" iconName="remove" ariaLabel="Delete execution" onClick={() => setConfirmDelete(e)} /></span>
+            ) : null),
           },
         ]}
       />
@@ -273,78 +268,90 @@ function ExecutionDetailModal({
             )}
           </Container>
 
-          {/* Cache performance */}
-          <CachePerformance execSteps={steps ?? []} stepTypeById={stepTypeById} />
-
-          {/* Steps */}
-          <Table<ExecutionStep>
-            items={steps ?? []}
-            loading={steps === null}
-            loadingText="Loading steps"
-            trackBy="stepId"
-            variant="embedded"
-            header={<Header variant="h3" counter={steps ? `(${steps.length})` : undefined}>Step results</Header>}
-            empty={<Box textAlign="center" padding="m" color="text-body-secondary">No step results recorded.</Box>}
-            columnDefinitions={[
-              { id: 'sort', header: '#', width: 60, cell: (r) => r.sort },
-              { id: 'status', header: 'Status', cell: (r) => { const st = stepStatus(r.status); return <StatusIndicator type={st.type}>{st.label}</StatusIndicator>; } },
-              { id: 'result', header: 'Result', cell: (r) => <Box fontSize="body-s">{r.errorMessage || r.result || '—'}</Box> },
-              { id: 'dur', header: 'Duration', cell: (r) => fmtDuration(r.startedAt, r.endedAt) },
+          {/* Steps and Artifacts in separate tabs so each is properly organized */}
+          <Tabs
+            tabs={[
+              {
+                id: 'steps',
+                label: `Steps${steps ? ` (${steps.length})` : ''}`,
+                content: (
+                  <SpaceBetween size="l">
+                    <CachePerformance execSteps={steps ?? []} stepTypeById={stepTypeById} />
+                    <Table<ExecutionStep>
+                      items={steps ?? []}
+                      loading={steps === null}
+                      loadingText="Loading steps"
+                      trackBy="stepId"
+                      variant="embedded"
+                      header={<Header variant="h3" counter={steps ? `(${steps.length})` : undefined}>Step results</Header>}
+                      empty={<Box textAlign="center" padding="m" color="text-body-secondary">No step results recorded.</Box>}
+                      columnDefinitions={[
+                        { id: 'sort', header: '#', width: 60, cell: (r) => r.sort },
+                        { id: 'status', header: 'Status', cell: (r) => { const st = stepStatus(r.status); return <StatusIndicator type={st.type}>{st.label}</StatusIndicator>; } },
+                        { id: 'result', header: 'Result', cell: (r) => <Box fontSize="body-s">{r.errorMessage || r.result || '—'}</Box> },
+                        { id: 'dur', header: 'Duration', cell: (r) => fmtDuration(r.startedAt, r.endedAt) },
+                      ]}
+                    />
+                  </SpaceBetween>
+                ),
+              },
+              {
+                id: 'artifacts',
+                label: `Artifacts${artifacts ? ` (${artifacts.length})` : ''}`,
+                content: (
+                  artifacts === null ? (
+                    <Box textAlign="center" padding="m"><Spinner /></Box>
+                  ) : artifacts.length === 0 ? (
+                    <Box color="text-body-secondary" padding={{ top: 's' }}>No artifacts. Run with <code>--capture full</code> to also capture the HTML trace and video.</Box>
+                  ) : (
+                    <SpaceBetween size="l">
+                      {videos.length > 0 && (
+                        <div>
+                          <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>Video</Box>
+                          <SpaceBetween size="s">
+                            {videos.map((v) => (
+                              <video key={v.artifactId} src={v.url} controls style={{ width: '100%', maxWidth: 640, borderRadius: 8, background: '#000' }} />
+                            ))}
+                          </SpaceBetween>
+                        </div>
+                      )}
+                      {images.length > 0 && (
+                        <div>
+                          <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>Screenshots</Box>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                            {images.map((img) => (
+                              <a key={img.artifactId} href={img.url} target="_blank" rel="noreferrer" title={img.filename}>
+                                <img src={img.url} alt={img.filename}
+                                  style={{ height: 130, borderRadius: 8, border: '1px solid var(--color-border-divider-default, #d5dbdb)' }} />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {files.length > 0 && (
+                        <div>
+                          <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>Files</Box>
+                          <SpaceBetween size="xs">
+                            {files.map((f) => (
+                              <div key={f.artifactId}>
+                                {f.url
+                                  ? <Link external href={f.url}>{f.filename}</Link>
+                                  : <span>{f.filename}</span>}
+                                {' '}<Box variant="span" color="text-body-secondary" fontSize="body-s">
+                                  {f.artifactType}{f.sizeBytes ? ` · ${fmtBytes(f.sizeBytes)}` : ''}
+                                  {f.status !== 'uploaded' ? ` · ${f.status}` : ''}
+                                </Box>
+                              </div>
+                            ))}
+                          </SpaceBetween>
+                        </div>
+                      )}
+                    </SpaceBetween>
+                  )
+                ),
+              },
             ]}
           />
-
-          {/* Artifacts */}
-          <Container header={<Header variant="h3" counter={artifacts ? `(${artifacts.length})` : undefined}>Artifacts</Header>}>
-            {artifacts === null ? (
-              <Box textAlign="center" padding="m"><Spinner /></Box>
-            ) : artifacts.length === 0 ? (
-              <Box color="text-body-secondary">No artifacts. Run with <code>--capture full</code> to also capture the HTML trace and video.</Box>
-            ) : (
-              <SpaceBetween size="l">
-                {videos.length > 0 && (
-                  <div>
-                    <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>Video</Box>
-                    <SpaceBetween size="s">
-                      {videos.map((v) => (
-                        <video key={v.artifactId} src={v.url} controls style={{ width: '100%', maxWidth: 640, borderRadius: 8, background: '#000' }} />
-                      ))}
-                    </SpaceBetween>
-                  </div>
-                )}
-                {images.length > 0 && (
-                  <div>
-                    <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>Screenshots</Box>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                      {images.map((img) => (
-                        <a key={img.artifactId} href={img.url} target="_blank" rel="noreferrer" title={img.filename}>
-                          <img src={img.url} alt={img.filename}
-                            style={{ height: 130, borderRadius: 8, border: '1px solid var(--color-border-divider-default, #d5dbdb)' }} />
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {files.length > 0 && (
-                  <div>
-                    <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>Files</Box>
-                    <SpaceBetween size="xs">
-                      {files.map((f) => (
-                        <div key={f.artifactId}>
-                          {f.url
-                            ? <Link external href={f.url}>{f.filename}</Link>
-                            : <span>{f.filename}</span>}
-                          {' '}<Box variant="span" color="text-body-secondary" fontSize="body-s">
-                            {f.artifactType}{f.sizeBytes ? ` · ${fmtBytes(f.sizeBytes)}` : ''}
-                            {f.status !== 'uploaded' ? ` · ${f.status}` : ''}
-                          </Box>
-                        </div>
-                      ))}
-                    </SpaceBetween>
-                  </div>
-                )}
-              </SpaceBetween>
-            )}
-          </Container>
         </SpaceBetween>
       )}
     </Modal>

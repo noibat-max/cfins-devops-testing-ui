@@ -48,6 +48,8 @@ export interface Usecase {
   active: boolean;
   tags: string[];
   created_at: string;
+  /** Username of whoever created (or cloned/imported) this use case. */
+  created_by?: string;
   executing_region: string;
   model_id: string;
   enableCache: boolean;

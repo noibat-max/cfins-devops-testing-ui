@@ -40,7 +40,6 @@ export default function UseCasesList() {
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [cloneTarget, setCloneTarget] = useState<Usecase | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Usecase | null>(null);
 
   const flash = useCallback(
     (type: FlashbarProps.Type, content: string) => {
@@ -102,7 +101,7 @@ export default function UseCasesList() {
             counter={items ? `(${items.length})` : undefined}
             actions={
               <SpaceBetween direction="horizontal" size="xs">
-                <Button variant="icon" iconName="refresh" onClick={load} ariaLabel="Refresh" />
+                <Button variant="link" iconName="refresh" onClick={load} ariaLabel="Refresh" />
                 {canWrite && (
                   <Button variant="link" iconName="upload" onClick={() => setShowImport(true)}>
                     Import
@@ -216,6 +215,12 @@ export default function UseCasesList() {
                         <Box fontSize="body-s" color="text-body-secondary">
                           {(u.executing_region || '—')} · {(u.created_at || '—')}
                         </Box>
+
+                        {/* Creator last — variable-length username wraps on its own line */}
+                        <Box fontSize="body-s" color="text-body-secondary">
+                          <Icon name="user-profile" size="small" /> Created by{' '}
+                          <span title={u.created_by || undefined}>{u.created_by || '—'}</span>
+                        </Box>
                       </SpaceBetween>
 
                       {/* Actions, right-aligned; stopPropagation so they don't open the card */}
@@ -223,11 +228,6 @@ export default function UseCasesList() {
                         <Button variant="link" iconName="download" onClick={() => onExport(u)}>Export</Button>
                         {canWrite && (
                           <Button variant="link" iconName="copy" onClick={() => setCloneTarget(u)}>Clone</Button>
-                        )}
-                        {canWrite && (
-                          <span className="wb-danger">
-                            <Button variant="link" iconName="remove" onClick={() => setDeleteTarget(u)}>Delete</Button>
-                          </span>
                         )}
                         <Button
                           variant="primary"
@@ -266,14 +266,6 @@ export default function UseCasesList() {
           source={cloneTarget}
           onClose={() => setCloneTarget(null)}
           onCloned={(id) => { setCloneTarget(null); flash('success', 'Use case cloned'); navigate(`${USECASES_BASE}/${id}`); }}
-          onError={(m) => flash('error', m)}
-        />
-      )}
-      {deleteTarget && (
-        <DeleteModal
-          target={deleteTarget}
-          onClose={() => setDeleteTarget(null)}
-          onDeleted={() => { const n = deleteTarget.name; setDeleteTarget(null); flash('success', `Deleted “${n}”`); load(); }}
           onError={(m) => flash('error', m)}
         />
       )}
@@ -442,34 +434,3 @@ function CloneModal({ source, onClose, onCloned, onError }: { source: Usecase; o
   );
 }
 
-// ---- Delete ----
-function DeleteModal({ target, onClose, onDeleted, onError }: { target: Usecase; onClose: () => void; onDeleted: () => void; onError: (m: string) => void }) {
-  const [busy, setBusy] = useState(false);
-  const submit = async () => {
-    setBusy(true);
-    try {
-      await api.deleteUsecase(target.id);
-      onDeleted();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : 'Delete failed');
-      setBusy(false);
-    }
-  };
-  return (
-    <Modal
-      visible
-      onDismiss={onClose}
-      header="Delete use case"
-      footer={
-        <Box float="right">
-          <SpaceBetween direction="horizontal" size="xs">
-            <Button variant="link" onClick={onClose}>Cancel</Button>
-            <span className="wb-danger-fill"><Button variant="primary" loading={busy} onClick={submit}>Delete</Button></span>
-          </SpaceBetween>
-        </Box>
-      }
-    >
-      Permanently delete <b>{target.name || '(untitled)'}</b> and all its steps? This cannot be undone.
-    </Modal>
-  );
-}
