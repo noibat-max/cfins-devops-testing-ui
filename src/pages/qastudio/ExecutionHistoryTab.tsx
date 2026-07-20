@@ -113,6 +113,16 @@ export default function ExecutionHistoryTab({
     finally { setBusy(false); }
   };
 
+  const onStop = async (e: Execution) => {
+    setBusy(true);
+    try {
+      await api.stopExecution(usecaseId, e.executionId);
+      onFlash('info', 'Stop requested — the run stops at the next step.');
+      load();
+    } catch (err) { onError(err instanceof Error ? err.message : 'Stop failed'); }
+    finally { setBusy(false); }
+  };
+
   return (
     <>
       <Table<Execution>
@@ -125,7 +135,7 @@ export default function ExecutionHistoryTab({
           <Box textAlign="center" padding="l" color="text-body-secondary">
             <SpaceBetween size="s">
               <b>No runs yet</b>
-              <span>Run this use case from the CLI:</span>
+              <span>Use <b>Run Now</b> (top right) to run on ECS, or run it locally from the CLI:</span>
               <Box variant="code">qa nova run {usecaseId} --env local</Box>
             </SpaceBetween>
           </Box>
@@ -160,7 +170,12 @@ export default function ExecutionHistoryTab({
           {
             id: 'actions', header: 'Actions',
             cell: (e) => (canWrite ? (
-              <span className="wb-danger"><Button variant="inline-icon" iconName="remove" ariaLabel="Delete execution" onClick={() => setConfirmDelete(e)} /></span>
+              <SpaceBetween direction="horizontal" size="xs">
+                {isInFlight(e.status) && (
+                  <Button variant="inline-link" onClick={() => onStop(e)}>Stop</Button>
+                )}
+                <span className="wb-danger"><Button variant="inline-icon" iconName="remove" ariaLabel="Delete execution" onClick={() => setConfirmDelete(e)} /></span>
+              </SpaceBetween>
             ) : null),
           },
         ]}
@@ -196,7 +211,7 @@ export default function ExecutionHistoryTab({
   );
 }
 
-function ExecutionDetailModal({
+export function ExecutionDetailModal({
   usecaseId, eid, onClose, onError,
 }: {
   usecaseId: string; eid: string; onClose: () => void; onError: (m: string) => void;

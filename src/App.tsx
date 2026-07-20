@@ -7,6 +7,10 @@ import AppScreen from './pages/AppScreen';
 import AdminScreen from './pages/AdminScreen';
 import UseCasesList from './pages/qastudio/UseCasesList';
 import UseCaseDetail from './pages/qastudio/UseCaseDetail';
+import TemplatesList from './pages/qastudio/TemplatesList';
+import TemplateDetail from './pages/qastudio/TemplateDetail';
+import SuitesList from './pages/qastudio/SuitesList';
+import SuiteDetail from './pages/qastudio/SuiteDetail';
 import UsersAdmin from './pages/admin/UsersAdmin';
 import GroupsAdmin from './pages/admin/GroupsAdmin';
 import AuditLogs from './pages/admin/AuditLogs';
@@ -38,6 +42,38 @@ export default function App() {
         element={
           <ProtectedRoute>
             <UseCaseDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/apps/qa-studio/templates"
+        element={
+          <ProtectedRoute>
+            <TemplatesList />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/apps/qa-studio/templates/:id"
+        element={
+          <ProtectedRoute>
+            <TemplateDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/apps/qa-studio/suites"
+        element={
+          <ProtectedRoute>
+            <SuitesList />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/apps/qa-studio/suites/:id"
+        element={
+          <ProtectedRoute>
+            <SuiteDetail />
           </ProtectedRoute>
         }
       />

@@ -70,6 +70,10 @@ export interface Step {
   assertion_variable?: string;
   value_type?: string;
   value_source?: string;
+  /** If this step originated from a template (Apply/Import/sync), a reference back to it. */
+  template_id?: string;
+  template_step_id?: string;
+  template_step_hash?: string;
 }
 
 /** A plaintext use-case variable, interpolated into steps as {{key}}. */
@@ -182,6 +186,103 @@ export interface Artifact {
   sizeBytes?: number;
   createdAt: string;
   url?: string;
+}
+
+// ---- Templates (§7 — reusable step libraries) ----
+
+export interface Template {
+  id: string;
+  name: string;
+  description: string;
+  created_at?: string;
+  created_by?: string;
+  /** Bumps on any step add/edit/delete/reorder. Starts at 1. */
+  version?: number;
+}
+
+/** One step in a template-drift diff. */
+export interface TemplateUpdateStep {
+  templateStepId?: string;
+  usecaseStepId?: string;
+  sort?: number;
+  step_type?: string;
+  instruction?: string;
+  localEdited?: boolean;
+}
+
+/** Per-template drift for a use case (new / updated / removed steps). */
+export interface TemplateUpdateGroup {
+  templateId: string;
+  templateName: string;
+  templateDeleted?: boolean;
+  new: TemplateUpdateStep[];
+  updated: TemplateUpdateStep[];
+  removed: TemplateUpdateStep[];
+}
+
+// ---- Test suites (§8 — batch collections of use cases) ----
+
+export interface TestSuite {
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  created_at?: string;
+  created_by?: string;
+  /** Number of member use cases (computed live). */
+  usecaseCount?: number;
+}
+
+/** Roll-up counts for a suite run (derived live from member executions). */
+export interface SuiteRunCounts {
+  total: number;
+  completed: number;
+  failed: number;
+  stopped: number;
+  running: number;
+  pending: number;
+}
+
+/** One batch run of a suite (list row). */
+export interface SuiteExecution {
+  suiteExecutionId: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | string;
+  counts: SuiteRunCounts;
+  totalUsecases: number;
+  mode: string;
+  trigger?: string;
+  triggeredBy?: string;
+  createdAt: string;
+}
+
+/** One member use-case execution within a suite run. */
+export interface SuiteExecMember {
+  executionId: string;
+  usecaseId: string;
+  usecaseName?: string | null;
+  status: string;
+  startedAt?: string;
+  endedAt?: string;
+  errorMessage?: string;
+}
+
+/** A suite run with its member executions (detail view). */
+export interface SuiteExecutionDetail extends SuiteExecution {
+  suiteId: string;
+  suiteName?: string;
+  members: SuiteExecMember[];
+}
+
+/** A use case's membership in a suite, with its details resolved live. */
+export interface SuiteMember {
+  usecaseId: string;
+  sort: number;
+  addedAt?: string;
+  /** null when the use case was deleted after being added (see `missing`). */
+  name: string | null;
+  description: string;
+  active: boolean;
+  missing: boolean;
 }
 
 // ---- Audit log (workbench governance) ----

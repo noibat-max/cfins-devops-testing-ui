@@ -8,11 +8,14 @@ import Box from '@cloudscape-design/components/box';
 import Button from '@cloudscape-design/components/button';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import Badge from '@cloudscape-design/components/badge';
+import Alert from '@cloudscape-design/components/alert';
 import Spinner from '@cloudscape-design/components/spinner';
 import Flashbar, { type FlashbarProps } from '@cloudscape-design/components/flashbar';
 import Container from '@cloudscape-design/components/container';
 import FormField from '@cloudscape-design/components/form-field';
 import Input from '@cloudscape-design/components/input';
+import CopyToClipboard from '@cloudscape-design/components/copy-to-clipboard';
+import RadioGroup from '@cloudscape-design/components/radio-group';
 import Textarea from '@cloudscape-design/components/textarea';
 import Toggle from '@cloudscape-design/components/toggle';
 import Modal from '@cloudscape-design/components/modal';
@@ -22,7 +25,7 @@ import ExecutionHistoryTab from './ExecutionHistoryTab';
 import { QA_STUDIO_NAV, QA_STUDIO_APP_NAME } from '../../config/qaStudioNav';
 import { useAuth } from '../../lib/auth';
 import { hasScope } from '../../types';
-import type { Header as HeaderKV, SecretMeta, Step, Usecase, Variable } from '../../types';
+import type { Header as HeaderKV, SecretMeta, Step, TemplateUpdateGroup, Usecase, Variable } from '../../types';
 import * as api from '../../lib/api';
 
 const USECASES_BASE = '/apps/qa-studio/usecases';
@@ -159,12 +162,15 @@ export default function UseCaseDetail() {
   const { user } = useAuth();
   const canWrite = hasScope(user, 'api/nova/usecases.write');
   const canManageExec = hasScope(user, 'api/nova/executions.write');
+  const canRun = hasScope(user, 'api/nova/usecases.execute');
 
   const [usecase, setUsecase] = useState<Usecase | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [flashes, setFlashes] = useState<FlashbarProps.MessageDefinition[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [activeTab, setActiveTab] = useState('details');
+  const [showRunNow, setShowRunNow] = useState(false);
 
   const flash = useCallback((type: FlashbarProps.Type, content: string) => {
     const fid = `${Date.now()}-${Math.random()}`;
@@ -208,11 +214,18 @@ export default function UseCaseDetail() {
             <Header
               variant="h1"
               actions={
-                canWrite && (
-                  <span className="wb-danger-fill">
-                    <Button iconName="remove" onClick={() => setConfirmDelete(true)}>Delete</Button>
-                  </span>
-                )
+                <SpaceBetween direction="horizontal" size="xs">
+                  {canRun && (
+                    <Button variant="primary" iconName="caret-right-filled" onClick={() => setShowRunNow(true)}>
+                      Run Now
+                    </Button>
+                  )}
+                  {canWrite && (
+                    <span className="wb-danger">
+                      <Button variant="link" iconName="remove" onClick={() => setConfirmDelete(true)}>Delete</Button>
+                    </span>
+                  )}
+                </SpaceBetween>
               }
               info={<Badge color={usecase.active ? 'green' : 'grey'}>{usecase.active ? 'Active' : 'Inactive'}</Badge>}
             >
@@ -231,6 +244,8 @@ export default function UseCaseDetail() {
           <SpaceBetween size="l">
             {flashes.length > 0 && <Flashbar items={flashes} />}
             <Tabs
+              activeTabId={activeTab}
+              onChange={({ detail }) => setActiveTab(detail.activeTabId)}
               tabs={[
                 {
                   id: 'details',
@@ -285,7 +300,69 @@ export default function UseCaseDetail() {
           Delete <b>{usecase.name || 'this use case'}</b>? This permanently removes the use case, its steps, and all execution history &amp; artifacts. This cannot be undone.
         </Modal>
       )}
+      {showRunNow && (
+        <RunNowModal
+          usecaseId={id}
+          onClose={() => setShowRunNow(false)}
+          onLaunched={() => { setShowRunNow(false); setActiveTab('exec'); flash('success', 'Launched on ECS — tracking it in Execution History.'); }}
+        />
+      )}
     </AppChrome>
+  );
+}
+
+function RunNowModal({
+  usecaseId, onClose, onLaunched,
+}: {
+  usecaseId: string; onClose: () => void; onLaunched: () => void;
+}) {
+  const [capture, setCapture] = useState<'screenshots' | 'full'>('screenshots');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.executeUsecase(usecaseId, 'run_now', capture);
+      onLaunched();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Run Now failed');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible
+      onDismiss={onClose}
+      header="Run now on ECS"
+      footer={
+        <Box float="right">
+          <SpaceBetween direction="horizontal" size="xs">
+            <Button variant="link" onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button variant="primary" iconName="caret-right-filled" loading={busy} onClick={submit}>Run</Button>
+          </SpaceBetween>
+        </Box>
+      }
+    >
+      <SpaceBetween size="m">
+        {err && <Alert type="error">{err}</Alert>}
+        <Box color="text-body-secondary">
+          Launches a headless run on AWS Fargate. Choose how much to capture:
+        </Box>
+        <FormField label="Logs to capture">
+          <RadioGroup
+            value={capture}
+            onChange={({ detail }) => setCapture(detail.value as 'screenshots' | 'full')}
+            items={[
+              { value: 'screenshots', label: 'Snapshots', description: 'A screenshot after each step (lighter, faster).' },
+              { value: 'full', label: 'Full logs', description: 'Also records the HTML trace and a video of the run.' },
+            ]}
+          />
+        </FormField>
+      </SpaceBetween>
+    </Modal>
   );
 }
 
@@ -670,7 +747,7 @@ function DetailsTab({ usecase, canWrite, onSaved, onError }: { usecase: Usecase;
   return (
     <Container>
       <SpaceBetween size="m">
-        <FormField label="Use case ID" description="System-assigned, read-only."><Input value={usecase.id} disabled readOnly /></FormField>
+        <FormField label="Use case ID" description="Read-only — use this with the CLI (qa nova run <id>)."><CopyToClipboard variant="inline" textToCopy={usecase.id} copySuccessText="Use case ID copied" copyErrorText="Failed to copy" /></FormField>
         <FormField label="Name"><Input value={name} readOnly={ro} onChange={({ detail }) => setName(detail.value)} /></FormField>
         <FormField label="Description"><Textarea value={description} readOnly={ro} onChange={({ detail }) => setDescription(detail.value)} /></FormField>
         <FormField label="Starting URL"><Input value={startingUrl} readOnly={ro} onChange={({ detail }) => setStartingUrl(detail.value)} /></FormField>
@@ -698,10 +775,21 @@ function StepsTab({ usecaseId, canWrite, onError }: { usecaseId: string; canWrit
   const [reordering, setReordering] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Step | null>(null);
   const [deletingStep, setDeletingStep] = useState(false);
+  const [updates, setUpdates] = useState<{ hasUpdates: boolean; templates: TemplateUpdateGroup[] } | null>(null);
+  const [showSync, setShowSync] = useState(false);
+  // Template origin lookups for the "Source" column: template id -> name, and
+  // template-step id -> the original step (so the popover can show it for reference).
+  const [tplNames, setTplNames] = useState<Record<string, string>>({});
+  const [tplStepRefs, setTplStepRefs] = useState<Record<string, { sort: number; instruction: string; step_type: string }>>({});
 
   const load = useCallback(() => {
     api.listSteps(usecaseId).then((r) => setSteps(r.steps)).catch((e: unknown) => onError(e instanceof Error ? e.message : 'Failed to load steps'));
   }, [usecaseId, onError]);
+
+  // Template drift — best-effort; only use cases derived from a template have any.
+  const loadUpdates = useCallback(() => {
+    api.getTemplateUpdates(usecaseId).then(setUpdates).catch(() => setUpdates(null));
+  }, [usecaseId]);
 
   // Secret keys + predefined variables feed the step editor's pickers/helpers.
   // Best-effort — authoring still works if either list can't be loaded.
@@ -712,7 +800,32 @@ function StepsTab({ usecaseId, canWrite, onError }: { usecaseId: string; canWrit
     api.getVariables(usecaseId).then((r) => setPredefinedVars(r.variables.map((v) => v.key).filter(Boolean))).catch(() => undefined);
   }, [usecaseId]);
 
-  useEffect(() => { load(); loadSecrets(); loadVars(); }, [load, loadSecrets, loadVars]);
+  useEffect(() => { load(); loadSecrets(); loadVars(); loadUpdates(); }, [load, loadSecrets, loadVars, loadUpdates]);
+
+  // Resolve the origin of template-derived steps so the Source column can name
+  // the template and show the original step. Best-effort; only runs when at
+  // least one step carries a template reference.
+  useEffect(() => {
+    const ids = Array.from(new Set((steps ?? []).filter((s) => s.template_id).map((s) => s.template_id as string)));
+    if (ids.length === 0) { setTplNames({}); setTplStepRefs({}); return; }
+    let cancelled = false;
+    (async () => {
+      const names: Record<string, string> = {};
+      const stepRefs: Record<string, { sort: number; instruction: string; step_type: string }> = {};
+      try {
+        (await api.listTemplates()).templates.forEach((t) => { names[t.id] = t.name; });
+      } catch { /* names best-effort */ }
+      await Promise.all(ids.map(async (tid) => {
+        try {
+          (await api.listTemplateSteps(tid)).steps.forEach((st) => {
+            stepRefs[st.id] = { sort: st.sort, instruction: st.instruction, step_type: st.step_type };
+          });
+        } catch { /* template may be deleted — leave source-step unresolved */ }
+      }));
+      if (!cancelled) { setTplNames(names); setTplStepRefs(stepRefs); }
+    })();
+    return () => { cancelled = true; };
+  }, [steps]);
 
   const move = async (index: number, dir: -1 | 1) => {
     if (!steps) return;
@@ -740,8 +853,28 @@ function StepsTab({ usecaseId, canWrite, onError }: { usecaseId: string; canWrit
     finally { setDeletingStep(false); }
   };
 
+  const newCount = (updates?.templates ?? []).reduce((a, t) => a + t.new.length, 0);
+  const updCount = (updates?.templates ?? []).reduce((a, t) => a + t.updated.length, 0);
+  const remCount = (updates?.templates ?? []).reduce((a, t) => a + t.removed.length, 0);
+  const parts = [
+    newCount && `${newCount} new`,
+    updCount && `${updCount} changed`,
+    remCount && `${remCount} removed`,
+  ].filter(Boolean).join(', ');
+
   return (
     <>
+      {canWrite && updates?.hasUpdates && (
+        <Box padding={{ bottom: 's' }}>
+          <Alert
+            type="info"
+            header="Template updates available"
+            action={<Button variant="link" onClick={() => setShowSync(true)}>Review updates</Button>}
+          >
+            The source template changed: {parts} step{newCount + updCount + remCount === 1 ? '' : 's'}.
+          </Alert>
+        </Box>
+      )}
       <Table<Step>
         items={steps ?? []}
         loading={steps === null}
@@ -767,6 +900,21 @@ function StepsTab({ usecaseId, canWrite, onError }: { usecaseId: string; canWrit
           { id: 'order', header: '#', width: 60, cell: (_s: Step) => (steps ? steps.indexOf(_s) + 1 : '') },
           { id: 'instruction', header: 'Instruction', cell: (s) => s.instruction, isRowHeader: true },
           { id: 'type', header: 'Type', cell: (s) => <Badge>{STEP_TYPE_LABEL(s.step_type)}</Badge> },
+          {
+            id: 'source',
+            header: 'Source',
+            cell: (s) => {
+              if (!s.template_id) return <Box color="text-status-inactive" fontSize="body-s">—</Box>;
+              const name = tplNames[s.template_id] ?? 'Deleted template';
+              const ref = s.template_step_id ? tplStepRefs[s.template_step_id] : undefined;
+              const json = JSON.stringify({ template: name, step: ref ? ref.sort : null });
+              return (
+                <Box color="text-body-secondary" fontSize="body-s">
+                  <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{json}</span>
+                </Box>
+              );
+            },
+          },
           { id: 'details', header: 'Details', cell: (s) => <Box color="text-body-secondary" fontSize="body-s"><span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{stepDetailsText(s)}</span></Box> },
           {
             id: 'actions',
@@ -830,7 +978,75 @@ function StepsTab({ usecaseId, canWrite, onError }: { usecaseId: string; canWrit
           Delete step {deleteTarget.sort} (<b>{deleteTarget.step_type}</b>)? This cannot be undone.
         </Modal>
       )}
+      {showSync && updates && (
+        <TemplateSyncModal
+          usecaseId={usecaseId}
+          groups={updates.templates}
+          onClose={() => setShowSync(false)}
+          onApplied={() => { setShowSync(false); load(); loadVars(); loadUpdates(); }}
+          onError={onError}
+        />
+      )}
     </>
+  );
+}
+
+// Template drift review + additive sync (lean v1).
+function TemplateSyncModal({ usecaseId, groups, onClose, onApplied, onError }: {
+  usecaseId: string; groups: TemplateUpdateGroup[];
+  onClose: () => void; onApplied: () => void; onError: (m: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const relevant = groups.filter((g) => g.new.length || g.updated.length || g.removed.length);
+
+  const apply = async (g: TemplateUpdateGroup) => {
+    setBusy(true);
+    try { await api.applyTemplateUpdates(usecaseId, g.templateId); onApplied(); }
+    catch (e) { onError(e instanceof Error ? e.message : 'Sync failed'); setBusy(false); }
+  };
+
+  return (
+    <Modal visible onDismiss={onClose} header="Template updates" size="large"
+      footer={<Box float="right"><Button variant="link" onClick={onClose}>Close</Button></Box>}>
+      <SpaceBetween size="l">
+        {relevant.map((g) => (
+          <Container key={g.templateId} header={
+            <Header variant="h3" actions={
+              (g.new.length || g.updated.length)
+                ? <Button variant="primary" loading={busy} onClick={() => apply(g)}>Apply {g.new.length + g.updated.length} change{g.new.length + g.updated.length === 1 ? '' : 's'}</Button>
+                : undefined
+            }>{g.templateName || 'Template'}</Header>
+          }>
+            <SpaceBetween size="m">
+              {g.new.length > 0 && (
+                <div>
+                  <Box variant="awsui-key-label">New steps ({g.new.length}) — appended to this use case</Box>
+                  <SpaceBetween size="xxs">
+                    {g.new.map((s) => <Box key={s.templateStepId} fontSize="body-s"><Badge color="green">{s.step_type}</Badge> {s.instruction || '—'}</Box>)}
+                  </SpaceBetween>
+                </div>
+              )}
+              {g.updated.length > 0 && (
+                <div>
+                  <Box variant="awsui-key-label">Changed steps ({g.updated.length}) — content updated from the template</Box>
+                  <SpaceBetween size="xxs">
+                    {g.updated.map((s) => (
+                      <Box key={s.templateStepId} fontSize="body-s">
+                        <Badge color="blue">{s.step_type}</Badge> {s.instruction || '—'}
+                        {s.localEdited && <>{' '}<Badge color="red">you edited this locally — will be overwritten</Badge></>}
+                      </Box>
+                    ))}
+                  </SpaceBetween>
+                </div>
+              )}
+              {g.removed.length > 0 && (
+                <Alert type="warning">{g.removed.length} step{g.removed.length === 1 ? ' was' : 's were'} removed from the template — kept in your use case (not deleted).</Alert>
+              )}
+            </SpaceBetween>
+          </Container>
+        ))}
+      </SpaceBetween>
+    </Modal>
   );
 }
 

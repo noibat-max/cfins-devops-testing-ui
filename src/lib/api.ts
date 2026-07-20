@@ -11,6 +11,12 @@ import type {
   ScopeInfo,
   SecretMeta,
   Step,
+  SuiteExecution,
+  SuiteExecutionDetail,
+  SuiteMember,
+  Template,
+  TemplateUpdateGroup,
+  TestSuite,
   Token,
   Usecase,
   UsecaseExport,
@@ -125,6 +131,15 @@ export function deleteUsecase(id: string): Promise<{ status: string }> {
 }
 
 // ---- Executions (§5 run history) ----
+export function executeUsecase(
+  usecaseId: string,
+  mode: 'local' | 'run_now' = 'run_now',
+  capture?: 'screenshots' | 'full',
+): Promise<{ executionId: string; status: string; mode: string; taskArn?: string }> {
+  const body: Record<string, string> = { mode };
+  if (capture) body.capture = capture;
+  return novaReq(`/usecase/${usecaseId}/execute`, { method: 'POST', body: JSON.stringify(body) });
+}
 export function listExecutions(usecaseId: string): Promise<{ executions: Execution[] }> {
   return novaReq(`/usecase/${usecaseId}/executions`);
 }
@@ -142,6 +157,122 @@ export function stopExecution(usecaseId: string, eid: string): Promise<{ status:
 }
 export function deleteExecution(usecaseId: string, eid: string): Promise<{ status: string }> {
   return novaReq(`/usecase/${usecaseId}/executions/${eid}`, { method: 'DELETE' });
+}
+
+// ---- Templates (§7 — reusable step libraries) ----
+export function listTemplates(): Promise<{ templates: Template[] }> {
+  return novaReq('/templates');
+}
+export function createTemplate(body: { name: string; description?: string }): Promise<Template> {
+  return novaReq('/templates', { method: 'POST', body: JSON.stringify(body) });
+}
+export function getTemplate(id: string): Promise<Template> {
+  return novaReq(`/templates/${id}`);
+}
+export function updateTemplate(id: string, body: { name?: string; description?: string }): Promise<Template> {
+  return novaReq(`/templates/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+export function deleteTemplate(id: string): Promise<{ status: string }> {
+  return novaReq(`/templates/${id}`, { method: 'DELETE' });
+}
+export function listTemplateSteps(id: string): Promise<{ steps: Step[] }> {
+  return novaReq(`/templates/${id}/steps`);
+}
+export function createTemplateStep(id: string, body: Partial<Step>): Promise<Step> {
+  return novaReq(`/templates/${id}/steps`, { method: 'POST', body: JSON.stringify(body) });
+}
+export function updateTemplateStep(id: string, stepId: string, body: Partial<Step>): Promise<{ status: string }> {
+  return novaReq(`/templates/${id}/steps/${stepId}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+export function deleteTemplateStep(id: string, stepId: string): Promise<{ status: string }> {
+  return novaReq(`/templates/${id}/steps/${stepId}`, { method: 'DELETE' });
+}
+export function reorderTemplateSteps(
+  id: string,
+  stepOrders: Array<{ step_id: string; sort: number }>,
+): Promise<{ count: number }> {
+  return novaReq(`/templates/${id}/steps/reorder`, {
+    method: 'PATCH',
+    body: JSON.stringify({ step_orders: stepOrders }),
+  });
+}
+export function getTemplateVariables(id: string): Promise<{ variables: Variable[] }> {
+  return novaReq(`/templates/${id}/variables`);
+}
+export function setTemplateVariables(id: string, variables: Variable[]): Promise<{ variables: Variable[] }> {
+  return novaReq(`/templates/${id}/variables`, { method: 'POST', body: JSON.stringify({ variables }) });
+}
+export function applyTemplate(
+  id: string,
+  body: { name?: string; starting_url?: string },
+): Promise<{ usecaseId: string; steps: number }> {
+  return novaReq(`/templates/${id}/apply`, { method: 'POST', body: JSON.stringify(body) });
+}
+export function importTemplateIntoUsecase(usecaseId: string, templateId: string): Promise<{ status: string; steps: number; variablesAdded: string[] }> {
+  return novaReq(`/usecase/${usecaseId}/import-template`, { method: 'POST', body: JSON.stringify({ templateId }) });
+}
+export function getTemplateUpdates(usecaseId: string): Promise<{ hasUpdates: boolean; templates: TemplateUpdateGroup[] }> {
+  return novaReq(`/usecase/${usecaseId}/template-updates`);
+}
+export function applyTemplateUpdates(
+  usecaseId: string,
+  templateId: string,
+  includeUpdates = true,
+): Promise<{ added: number; updated: number }> {
+  return novaReq(`/usecase/${usecaseId}/template-updates/apply`, {
+    method: 'POST',
+    body: JSON.stringify({ templateId, includeUpdates }),
+  });
+}
+
+// ---- Test suites (§8) ----
+export function listTestSuites(): Promise<{ testSuites: TestSuite[] }> {
+  return novaReq('/test-suites');
+}
+export function createTestSuite(body: { name: string; description?: string; tags?: string[] }): Promise<TestSuite> {
+  return novaReq('/test-suites', { method: 'POST', body: JSON.stringify(body) });
+}
+export function getTestSuite(id: string): Promise<TestSuite> {
+  return novaReq(`/test-suites/${id}`);
+}
+export function updateTestSuite(
+  id: string,
+  body: { name?: string; description?: string; tags?: string[] },
+): Promise<TestSuite> {
+  return novaReq(`/test-suites/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+}
+export function deleteTestSuite(id: string): Promise<{ status: string }> {
+  return novaReq(`/test-suites/${id}`, { method: 'DELETE' });
+}
+export function listSuiteUsecases(id: string): Promise<{ usecases: SuiteMember[] }> {
+  return novaReq(`/test-suites/${id}/usecases`);
+}
+export function addUsecasesToSuite(id: string, usecaseIds: string[]): Promise<{ added: string[]; usecaseCount: number }> {
+  return novaReq(`/test-suites/${id}/usecases`, { method: 'POST', body: JSON.stringify({ usecaseIds }) });
+}
+export function removeUsecaseFromSuite(id: string, usecaseId: string): Promise<{ status: string }> {
+  return novaReq(`/test-suites/${id}/usecases/${usecaseId}`, { method: 'DELETE' });
+}
+export function executeSuite(
+  id: string,
+  mode: 'local' | 'run_now' = 'run_now',
+  capture?: 'screenshots' | 'full',
+): Promise<{ suiteExecutionId: string; total: number; mode: string; launched?: number }> {
+  const body: Record<string, string> = { mode };
+  if (capture) body.capture = capture;
+  return novaReq(`/test-suites/${id}/execute`, { method: 'POST', body: JSON.stringify(body) });
+}
+export function listSuiteExecutions(id: string): Promise<{ executions: SuiteExecution[] }> {
+  return novaReq(`/test-suites/${id}/executions`);
+}
+export function getSuiteExecution(id: string, seId: string): Promise<SuiteExecutionDetail> {
+  return novaReq(`/test-suites/${id}/executions/${seId}`);
+}
+export function stopSuiteExecution(id: string, seId: string): Promise<{ stopRequested: number }> {
+  return novaReq(`/test-suites/${id}/executions/${seId}/stop`, { method: 'POST' });
+}
+export function deleteSuiteExecution(id: string, seId: string): Promise<{ membersDeleted: number }> {
+  return novaReq(`/test-suites/${id}/executions/${seId}`, { method: 'DELETE' });
 }
 
 export function exportUsecase(id: string): Promise<UsecaseExport> {

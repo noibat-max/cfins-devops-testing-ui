@@ -4,8 +4,8 @@ import type { NavItem } from '../components/AppNavBar';
 export const QA_STUDIO_NAV: NavItem[] = [
   { label: 'Dashboard', to: '/apps/qa-studio' },
   { label: 'Use cases', to: '/apps/qa-studio/usecases' },
-  { label: 'Test Suites' },
-  { label: 'Templates' },
+  { label: 'Test Suites', to: '/apps/qa-studio/suites' },
+  { label: 'Templates', to: '/apps/qa-studio/templates' },
 ];
 
 export const QA_STUDIO_APP_NAME = 'QA Studio';
