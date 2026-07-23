@@ -22,6 +22,7 @@ import Modal from '@cloudscape-design/components/modal';
 import Select from '@cloudscape-design/components/select';
 import AppChrome from '../../components/AppChrome';
 import ExecutionHistoryTab from './ExecutionHistoryTab';
+import ScheduleTab from './ScheduleTab';
 import { QA_STUDIO_NAV, QA_STUDIO_APP_NAME } from '../../config/qaStudioNav';
 import { useAuth } from '../../lib/auth';
 import { hasScope } from '../../types';
@@ -160,9 +161,9 @@ export default function UseCaseDetail() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canWrite = hasScope(user, 'api/nova/usecases.write');
-  const canManageExec = hasScope(user, 'api/nova/executions.write');
-  const canRun = hasScope(user, 'api/nova/usecases.execute');
+  const canWrite = hasScope(user, 'api/qawb/usecases.write');
+  const canManageExec = hasScope(user, 'api/qawb/executions.write');
+  const canRun = hasScope(user, 'api/qawb/usecases.execute');
 
   const [usecase, setUsecase] = useState<Usecase | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -217,7 +218,7 @@ export default function UseCaseDetail() {
                 <SpaceBetween direction="horizontal" size="xs">
                   {canRun && (
                     <Button variant="primary" iconName="caret-right-filled" onClick={() => setShowRunNow(true)}>
-                      Run Now
+                      Run
                     </Button>
                   )}
                   {canWrite && (
@@ -276,7 +277,7 @@ export default function UseCaseDetail() {
                   id: 'exec', label: 'Execution History',
                   content: <ExecutionHistoryTab usecaseId={id} canWrite={canManageExec} onFlash={flash} onError={(m) => flash('error', m)} />,
                 },
-                { id: 'sched', label: 'Schedule', content: <ComingSoon />, disabled: true },
+                { id: 'sched', label: 'Schedule', content: <ScheduleTab targetType="usecase" targetId={id} /> },
                 { id: 'hooks', label: 'Hooks', content: <ComingSoon />, disabled: true },
               ]}
             />
@@ -304,7 +305,13 @@ export default function UseCaseDetail() {
         <RunNowModal
           usecaseId={id}
           onClose={() => setShowRunNow(false)}
-          onLaunched={() => { setShowRunNow(false); setActiveTab('exec'); flash('success', 'Launched on ECS — tracking it in Execution History.'); }}
+          onLaunched={(mode) => {
+            setShowRunNow(false);
+            setActiveTab('exec');
+            flash('success', mode === 'queued'
+              ? 'Queued — it will run when a slot is free. Tracking it in Execution History.'
+              : 'Launched on ECS — tracking it in Execution History.');
+          }}
         />
       )}
     </AppChrome>
@@ -314,8 +321,9 @@ export default function UseCaseDetail() {
 function RunNowModal({
   usecaseId, onClose, onLaunched,
 }: {
-  usecaseId: string; onClose: () => void; onLaunched: () => void;
+  usecaseId: string; onClose: () => void; onLaunched: (mode: 'run_now' | 'queued') => void;
 }) {
+  const [mode, setMode] = useState<'run_now' | 'queued'>('run_now');
   const [capture, setCapture] = useState<'screenshots' | 'full'>('screenshots');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -324,10 +332,10 @@ function RunNowModal({
     setBusy(true);
     setErr(null);
     try {
-      await api.executeUsecase(usecaseId, 'run_now', capture);
-      onLaunched();
+      await api.executeUsecase(usecaseId, mode, capture);
+      onLaunched(mode);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Run Now failed');
+      setErr(e instanceof Error ? e.message : 'Run failed');
       setBusy(false);
     }
   };
@@ -336,21 +344,30 @@ function RunNowModal({
     <Modal
       visible
       onDismiss={onClose}
-      header="Run now on ECS"
+      header="Run test"
       footer={
         <Box float="right">
           <SpaceBetween direction="horizontal" size="xs">
             <Button variant="link" onClick={onClose} disabled={busy}>Cancel</Button>
-            <Button variant="primary" iconName="caret-right-filled" loading={busy} onClick={submit}>Run</Button>
+            <Button variant="primary" iconName="caret-right-filled" loading={busy} onClick={submit}>
+              {mode === 'queued' ? 'Queue' : 'Run'}
+            </Button>
           </SpaceBetween>
         </Box>
       }
     >
       <SpaceBetween size="m">
         {err && <Alert type="error">{err}</Alert>}
-        <Box color="text-body-secondary">
-          Launches a headless run on AWS Fargate. Choose how much to capture:
-        </Box>
+        <FormField label="When">
+          <RadioGroup
+            value={mode}
+            onChange={({ detail }) => setMode(detail.value as 'run_now' | 'queued')}
+            items={[
+              { value: 'run_now', label: 'Run now', description: 'Launch a headless Fargate task immediately.' },
+              { value: 'queued', label: 'Run later', description: 'Queue it — the dispatcher runs it when a slot frees up (capped concurrency).' },
+            ]}
+          />
+        </FormField>
         <FormField label="Logs to capture">
           <RadioGroup
             value={capture}

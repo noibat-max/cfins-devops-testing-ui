@@ -1,1 +1,1 @@
-# cfins-devops-testing-ui
+# qa-platform-ui

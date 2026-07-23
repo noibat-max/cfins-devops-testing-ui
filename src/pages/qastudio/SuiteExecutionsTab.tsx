@@ -156,7 +156,12 @@ export default function SuiteExecutionsTab({
           },
           {
             id: 'status', header: 'Status',
-            cell: (r) => { const s = suiteStatus(r.status); return <StatusIndicator type={s.type}>{s.label}</StatusIndicator>; },
+            cell: (r) => {
+              const s = r.mode === 'queued' && r.status === 'pending'
+                ? { type: 'pending' as StatusIndicatorProps.Type, label: 'Queued' }
+                : suiteStatus(r.status);
+              return <StatusIndicator type={s.type}>{s.label}</StatusIndicator>;
+            },
           },
           { id: 'progress', header: 'Results', cell: (r) => <Box fontSize="body-s" color="text-body-secondary">{progressText(r.counts)}</Box> },
           { id: 'total', header: 'Use cases', cell: (r) => r.totalUsecases },
@@ -225,7 +230,11 @@ function SuiteRunModal({
     return () => clearInterval(t);
   }, [inFlight, load]);
 
-  const s = detail ? suiteStatus(detail.status) : null;
+  const s = detail
+    ? (detail.mode === 'queued' && detail.status === 'pending'
+        ? { type: 'pending' as StatusIndicatorProps.Type, label: 'Queued' }
+        : suiteStatus(detail.status))
+    : null;
 
   return (
     <Modal
@@ -265,7 +274,12 @@ function SuiteRunModal({
               },
               {
                 id: 'status', header: 'Status',
-                cell: (m) => { const ms = memberStatus(m.status); return <StatusIndicator type={ms.type}>{ms.label}</StatusIndicator>; },
+                cell: (m) => {
+                  const ms = detail?.mode === 'queued' && m.status === 'pending'
+                    ? { type: 'pending' as StatusIndicatorProps.Type, label: 'Queued' }
+                    : memberStatus(m.status);
+                  return <StatusIndicator type={ms.type}>{ms.label}</StatusIndicator>;
+                },
               },
               { id: 'duration', header: 'Duration', cell: (m) => fmtDuration(m.startedAt, m.endedAt) },
               {

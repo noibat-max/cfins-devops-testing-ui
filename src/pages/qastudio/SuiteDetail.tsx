@@ -22,6 +22,7 @@ import RadioGroup from '@cloudscape-design/components/radio-group';
 import Alert from '@cloudscape-design/components/alert';
 import AppChrome from '../../components/AppChrome';
 import SuiteExecutionsTab from './SuiteExecutionsTab';
+import ScheduleTab from './ScheduleTab';
 import { QA_STUDIO_NAV, QA_STUDIO_APP_NAME } from '../../config/qaStudioNav';
 import { useAuth } from '../../lib/auth';
 import { hasScope } from '../../types';
@@ -35,7 +36,7 @@ export default function SuiteDetail() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canWrite = hasScope(user, 'api/nova/suite.write');
+  const canWrite = hasScope(user, 'api/qawb/suite.write');
 
   const [suite, setSuite] = useState<TestSuite | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +92,7 @@ export default function SuiteDetail() {
                 <SpaceBetween direction="horizontal" size="xs">
                   {canWrite && (
                     <Button variant="primary" iconName="caret-right-filled" onClick={() => setShowRunNow(true)}>
-                      Run Now
+                      Run
                     </Button>
                   )}
                   {canWrite && (
@@ -131,7 +132,7 @@ export default function SuiteDetail() {
                   label: 'Executions',
                   content: <SuiteExecutionsTab suiteId={id} canWrite={canWrite} onFlash={flash} onError={(m) => flash('error', m)} />,
                 },
-                { id: 'sched', label: 'Schedule', content: <ComingSoon />, disabled: true },
+                { id: 'sched', label: 'Schedule', content: <ScheduleTab targetType="suite" targetId={id} /> },
               ]}
             />
           </SpaceBetween>
@@ -161,7 +162,13 @@ export default function SuiteDetail() {
         <SuiteRunNowModal
           suiteId={id}
           onClose={() => setShowRunNow(false)}
-          onLaunched={(n) => { setShowRunNow(false); setActiveTab('exec'); flash('success', `Launched ${n} use case${n === 1 ? '' : 's'} on ECS — tracking in Executions.`); }}
+          onLaunched={(mode, n) => {
+            setShowRunNow(false);
+            setActiveTab('exec');
+            flash('success', mode === 'queued'
+              ? `Queued ${n} use case${n === 1 ? '' : 's'} — they run as slots free up. Tracking in Executions.`
+              : `Launched ${n} use case${n === 1 ? '' : 's'} on ECS — tracking in Executions.`);
+          }}
         />
       )}
     </AppChrome>
@@ -171,8 +178,9 @@ export default function SuiteDetail() {
 function SuiteRunNowModal({
   suiteId, onClose, onLaunched,
 }: {
-  suiteId: string; onClose: () => void; onLaunched: (launched: number) => void;
+  suiteId: string; onClose: () => void; onLaunched: (mode: 'run_now' | 'queued', count: number) => void;
 }) {
+  const [mode, setMode] = useState<'run_now' | 'queued'>('run_now');
   const [capture, setCapture] = useState<'screenshots' | 'full'>('screenshots');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -181,10 +189,10 @@ function SuiteRunNowModal({
     setBusy(true);
     setErr(null);
     try {
-      const r = await api.executeSuite(suiteId, 'run_now', capture);
-      onLaunched(r.launched ?? r.total);
+      const r = await api.executeSuite(suiteId, mode, capture);
+      onLaunched(mode, (mode === 'queued' ? r.queued : r.launched) ?? r.total);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Run Now failed');
+      setErr(e instanceof Error ? e.message : 'Run failed');
       setBusy(false);
     }
   };
@@ -193,21 +201,30 @@ function SuiteRunNowModal({
     <Modal
       visible
       onDismiss={onClose}
-      header="Run suite now on ECS"
+      header="Run suite"
       footer={
         <Box float="right">
           <SpaceBetween direction="horizontal" size="xs">
             <Button variant="link" onClick={onClose} disabled={busy}>Cancel</Button>
-            <Button variant="primary" iconName="caret-right-filled" loading={busy} onClick={submit}>Run</Button>
+            <Button variant="primary" iconName="caret-right-filled" loading={busy} onClick={submit}>
+              {mode === 'queued' ? 'Queue' : 'Run'}
+            </Button>
           </SpaceBetween>
         </Box>
       }
     >
       <SpaceBetween size="m">
         {err && <Alert type="error">{err}</Alert>}
-        <Box color="text-body-secondary">
-          Launches every runnable use case in this suite as its own headless Fargate task (they run in parallel). Choose how much to capture:
-        </Box>
+        <FormField label="When">
+          <RadioGroup
+            value={mode}
+            onChange={({ detail }) => setMode(detail.value as 'run_now' | 'queued')}
+            items={[
+              { value: 'run_now', label: 'Run now', description: 'Launch every runnable use case as its own Fargate task, in parallel.' },
+              { value: 'queued', label: 'Run later', description: 'Queue every use case — the dispatcher runs them as slots free up (capped concurrency).' },
+            ]}
+          />
+        </FormField>
         <FormField label="Logs to capture">
           <RadioGroup
             value={capture}
@@ -221,10 +238,6 @@ function SuiteRunNowModal({
       </SpaceBetween>
     </Modal>
   );
-}
-
-function ComingSoon() {
-  return <Box color="text-body-secondary" padding="l">Coming soon — suite execution arrives in the next slice.</Box>;
 }
 
 // ---- Use cases (members) tab ----------------------------------------------

@@ -12,7 +12,7 @@ import { useAuth } from '../lib/auth';
 import { isAdmin } from '../types';
 import * as api from '../lib/api';
 // Inlined so the wordmark's text renders reliably (SVG text doesn't paint via <img>).
-import workbenchWordmark from '../../public/branding/qa-workbench-white.svg?raw';
+import workbenchWordmark from '../branding/qa-workbench-white.svg?raw';
 import './WorkbenchTopBar.css';
 
 interface Props {

@@ -71,8 +71,8 @@ export default function TemplateDetail() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canWrite = hasScope(user, 'api/nova/templates.write');
-  const canApply = hasScope(user, 'api/nova/usecases.write');
+  const canWrite = hasScope(user, 'api/qawb/templates.write');
+  const canApply = hasScope(user, 'api/qawb/usecases.write');
 
   const [tpl, setTpl] = useState<Template | null>(null);
   const [error, setError] = useState<string | null>(null);

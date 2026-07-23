@@ -9,6 +9,7 @@ import type {
   Group,
   Header,
   ScopeInfo,
+  Schedule,
   SecretMeta,
   Step,
   SuiteExecution,
@@ -25,13 +26,13 @@ import type {
   WorkbenchApp,
 } from '../types';
 
-// Points at cfins-devops-testing-api (uvicorn). Override with VITE_API_BASE.
+// Points at qa-platform-api (uvicorn). Override with VITE_API_BASE.
 // The app owns `/api`: every functional route is under it. QA Studio (Nova Act)
-// calls go under `/api/nova`; workbench-shell calls (auth, apps, admin, tokens)
+// calls go under `/api/qawb`; workbench-shell calls (auth, apps, admin, tokens)
 // sit directly under `/api`.
 const ROOT = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
 const API = `${ROOT}/api`;
-const NOVA = `${ROOT}/api/nova`;
+const NOVA = `${ROOT}/api/qawb`;
 
 const AUTH_STORAGE_KEY = 'qa-workbench.auth';
 
@@ -76,7 +77,7 @@ function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   return request<T>(API, path, init);
 }
 
-/** QA Studio (Nova Act) request (under /api/nova). */
+/** QA Studio (Nova Act) request (under /api/qawb). */
 function novaReq<T>(path: string, init: RequestInit = {}): Promise<T> {
   return request<T>(NOVA, path, init);
 }
@@ -133,7 +134,7 @@ export function deleteUsecase(id: string): Promise<{ status: string }> {
 // ---- Executions (§5 run history) ----
 export function executeUsecase(
   usecaseId: string,
-  mode: 'local' | 'run_now' = 'run_now',
+  mode: 'local' | 'run_now' | 'queued' = 'run_now',
   capture?: 'screenshots' | 'full',
 ): Promise<{ executionId: string; status: string; mode: string; taskArn?: string }> {
   const body: Record<string, string> = { mode };
@@ -225,6 +226,25 @@ export function applyTemplateUpdates(
   });
 }
 
+// ---- Schedules (EventBridge Scheduler) ----
+export function listSchedules(targetId: string): Promise<{ schedules: Schedule[] }> {
+  return novaReq(`/schedules?targetId=${encodeURIComponent(targetId)}`);
+}
+export function createSchedule(body: {
+  targetType: 'usecase' | 'suite'; targetId: string; kind: 'once' | 'rate';
+  expression: string; capture?: 'screenshots' | 'full'; label?: string;
+}): Promise<Schedule> {
+  return novaReq('/schedules', { method: 'POST', body: JSON.stringify(body) });
+}
+export function updateSchedule(id: string, body: {
+  expression?: string; capture?: 'screenshots' | 'full'; label?: string; state?: 'enabled' | 'disabled';
+}): Promise<Schedule> {
+  return novaReq(`/schedules/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+export function deleteSchedule(id: string): Promise<{ status: string }> {
+  return novaReq(`/schedules/${id}`, { method: 'DELETE' });
+}
+
 // ---- Test suites (§8) ----
 export function listTestSuites(): Promise<{ testSuites: TestSuite[] }> {
   return novaReq('/test-suites');
@@ -255,9 +275,9 @@ export function removeUsecaseFromSuite(id: string, usecaseId: string): Promise<{
 }
 export function executeSuite(
   id: string,
-  mode: 'local' | 'run_now' = 'run_now',
+  mode: 'local' | 'run_now' | 'queued' = 'run_now',
   capture?: 'screenshots' | 'full',
-): Promise<{ suiteExecutionId: string; total: number; mode: string; launched?: number }> {
+): Promise<{ suiteExecutionId: string; total: number; mode: string; launched?: number; queued?: number }> {
   const body: Record<string, string> = { mode };
   if (capture) body.capture = capture;
   return novaReq(`/test-suites/${id}/execute`, { method: 'POST', body: JSON.stringify(body) });

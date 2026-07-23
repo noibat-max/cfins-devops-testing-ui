@@ -93,3 +93,33 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* --- bulk selection --- */
+.uc-selbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  background: #eef5fc;
+  border: 1px solid #cfe2f5;
+  border-radius: 8px;
+}
+.uc-selbar-count {
+  font-weight: 600;
+  color: #003865;
+}
+.uc-card--selected {
+  outline: 2px solid #005eb8;
+  outline-offset: 1px;
+}
+.uc-card-check {
+  display: inline-flex;
+  align-items: center;
+}
+.uc-bulk-list {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 200px;
+  overflow-y: auto;
+}

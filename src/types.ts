@@ -303,3 +303,22 @@ export interface AuditEvent {
   correlationId: string;
   env: string;
 }
+
+export interface Schedule {
+  scheduleId: string;
+  app: string;
+  targetType: 'usecase' | 'suite';
+  targetId: string;
+  kind: 'once' | 'rate';
+  expression: string;
+  timezone: string;
+  capture: 'screenshots' | 'full';
+  mode: string;
+  state: 'enabled' | 'disabled';
+  label: string;
+  createdBy: string;
+  createdAt: string;
+  lastRunAt?: string;
+  lastExecutionId?: string;
+  nextRun: string | null;
+}

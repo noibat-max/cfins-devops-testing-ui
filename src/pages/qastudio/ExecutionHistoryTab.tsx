@@ -161,7 +161,12 @@ export default function ExecutionHistoryTab({
           },
           {
             id: 'status', header: 'Status',
-            cell: (e) => { const s = execStatus(e.status); return <StatusIndicator type={s.type}>{s.label}</StatusIndicator>; },
+            cell: (e) => {
+              const s = e.mode === 'queued' && e.status === 'pending'
+                ? { type: 'pending' as StatusIndicatorProps.Type, label: 'Queued' }
+                : execStatus(e.status);
+              return <StatusIndicator type={s.type}>{s.label}</StatusIndicator>;
+            },
           },
           { id: 'started', header: 'Started', cell: (e) => fmtTime(e.startedAt || e.createdAt) },
           { id: 'duration', header: 'Duration', cell: (e) => fmtDuration(e.startedAt, e.endedAt) },

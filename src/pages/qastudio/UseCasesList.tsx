@@ -16,7 +16,10 @@ import Alert from '@cloudscape-design/components/alert';
 import FormField from '@cloudscape-design/components/form-field';
 import Input from '@cloudscape-design/components/input';
 import Textarea from '@cloudscape-design/components/textarea';
+import FileUpload from '@cloudscape-design/components/file-upload';
 import Toggle from '@cloudscape-design/components/toggle';
+import Checkbox from '@cloudscape-design/components/checkbox';
+import RadioGroup from '@cloudscape-design/components/radio-group';
 import AppChrome from '../../components/AppChrome';
 import { QA_STUDIO_NAV, QA_STUDIO_APP_NAME } from '../../config/qaStudioNav';
 import { useAuth } from '../../lib/auth';
@@ -30,7 +33,8 @@ const USECASES_BASE = '/apps/qa-studio/usecases';
 export default function UseCasesList() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canWrite = hasScope(user, 'api/nova/usecases.write');
+  const canWrite = hasScope(user, 'api/qawb/usecases.write');
+  const canExecute = hasScope(user, 'api/qawb/usecases.execute');
 
   const [items, setItems] = useState<Usecase[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +44,18 @@ export default function UseCasesList() {
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [cloneTarget, setCloneTarget] = useState<Usecase | null>(null);
+
+  // --- bulk selection ---
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showBulkRun, setShowBulkRun] = useState(false);
+  const [showBulkDelete, setShowBulkDelete] = useState(false);
+  const toggleSel = (id: string) =>
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  const clearSel = () => setSelected(new Set());
 
   const flash = useCallback(
     (type: FlashbarProps.Type, content: string) => {
@@ -127,6 +143,23 @@ export default function UseCasesList() {
             />
           </div>
 
+          {selected.size > 0 && (
+            <div className="uc-selbar">
+              <span className="uc-selbar-count">{selected.size} selected</span>
+              <SpaceBetween direction="horizontal" size="xs">
+                <Button variant="link" onClick={clearSel}>Clear</Button>
+                {canExecute && (
+                  <Button iconName="caret-right-filled" onClick={() => setShowBulkRun(true)}>Run</Button>
+                )}
+                {canWrite && (
+                  <span className="wb-danger">
+                    <Button iconName="remove" onClick={() => setShowBulkDelete(true)}>Delete</Button>
+                  </span>
+                )}
+              </SpaceBetween>
+            </div>
+          )}
+
           {error ? (
             <Flashbar items={[{ type: 'error', content: error, dismissible: false }]} />
           ) : items === null ? (
@@ -145,7 +178,7 @@ export default function UseCasesList() {
               {filtered.map((u) => (
                 <div
                   key={u.id}
-                  className="uc-card"
+                  className={`uc-card${selected.has(u.id) ? ' uc-card--selected' : ''}`}
                   role="button"
                   tabIndex={0}
                   aria-label={`Open ${u.name || 'use case'}`}
@@ -163,6 +196,13 @@ export default function UseCasesList() {
                     fitHeight
                     header={
                       <div className="uc-card-title-row">
+                        <span className="uc-card-check" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selected.has(u.id)}
+                            onChange={() => toggleSel(u.id)}
+                            ariaLabel={`Select ${u.name || 'use case'}`}
+                          />
+                        </span>
                         <span className="uc-card-title">{u.name || '(untitled)'}</span>
                         {u.active ? (
                           <StatusIndicator type="success">Active</StatusIndicator>
@@ -269,7 +309,144 @@ export default function UseCasesList() {
           onError={(m) => flash('error', m)}
         />
       )}
+      {showBulkRun && (
+        <BulkRunModal
+          ids={Array.from(selected)}
+          onClose={() => setShowBulkRun(false)}
+          onDone={(mode, ok, failed) => {
+            setShowBulkRun(false);
+            clearSel();
+            const verb = mode === 'queued' ? 'Queued' : 'Launched';
+            flash(failed ? 'warning' : 'success',
+              `${verb} ${ok} use case${ok === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}.`);
+          }}
+        />
+      )}
+      {showBulkDelete && (
+        <BulkDeleteModal
+          items={(items ?? []).filter((u) => selected.has(u.id))}
+          onClose={() => setShowBulkDelete(false)}
+          onDone={(ok, failed) => {
+            setShowBulkDelete(false);
+            clearSel();
+            flash(failed ? 'warning' : 'success',
+              `Deleted ${ok} use case${ok === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}.`);
+            load();
+          }}
+        />
+      )}
     </AppChrome>
+  );
+}
+
+// ---- Bulk run ----
+function BulkRunModal({
+  ids, onClose, onDone,
+}: {
+  ids: string[];
+  onClose: () => void;
+  onDone: (mode: 'run_now' | 'queued', ok: number, failed: number) => void;
+}) {
+  const [mode, setMode] = useState<'run_now' | 'queued'>('queued');
+  const [capture, setCapture] = useState<'screenshots' | 'full'>('screenshots');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async () => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const results = await Promise.allSettled(ids.map((id) => api.executeUsecase(id, mode, capture)));
+      const ok = results.filter((r) => r.status === 'fulfilled').length;
+      onDone(mode, ok, ids.length - ok);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Run failed');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible
+      onDismiss={onClose}
+      header={`Run ${ids.length} use case${ids.length === 1 ? '' : 's'}`}
+      footer={
+        <Box float="right">
+          <SpaceBetween direction="horizontal" size="xs">
+            <Button variant="link" onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button variant="primary" iconName="caret-right-filled" loading={busy} onClick={submit}>
+              {mode === 'queued' ? 'Queue' : 'Run'}
+            </Button>
+          </SpaceBetween>
+        </Box>
+      }
+    >
+      <SpaceBetween size="m">
+        {err && <Alert type="error">{err}</Alert>}
+        <FormField label="When">
+          <RadioGroup
+            value={mode}
+            onChange={({ detail }) => setMode(detail.value as 'run_now' | 'queued')}
+            items={[
+              { value: 'queued', label: 'Run later', description: 'Queue them — the dispatcher runs them as slots free up (recommended for many).' },
+              { value: 'run_now', label: 'Run now', description: 'Launch every selected use case as its own Fargate task, in parallel.' },
+            ]}
+          />
+        </FormField>
+        <FormField label="Logs to capture">
+          <RadioGroup
+            value={capture}
+            onChange={({ detail }) => setCapture(detail.value as 'screenshots' | 'full')}
+            items={[
+              { value: 'screenshots', label: 'Snapshots', description: 'A screenshot after each step (lighter, faster).' },
+              { value: 'full', label: 'Full logs', description: 'Also records the HTML trace and a video of each run.' },
+            ]}
+          />
+        </FormField>
+      </SpaceBetween>
+    </Modal>
+  );
+}
+
+// ---- Bulk delete ----
+function BulkDeleteModal({
+  items, onClose, onDone,
+}: {
+  items: Usecase[];
+  onClose: () => void;
+  onDone: (ok: number, failed: number) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    setBusy(true);
+    const results = await Promise.allSettled(items.map((u) => api.deleteUsecase(u.id)));
+    const ok = results.filter((r) => r.status === 'fulfilled').length;
+    onDone(ok, items.length - ok);
+  };
+  return (
+    <Modal
+      visible
+      onDismiss={onClose}
+      header={`Delete ${items.length} use case${items.length === 1 ? '' : 's'}`}
+      footer={
+        <Box float="right">
+          <SpaceBetween direction="horizontal" size="xs">
+            <Button variant="link" onClick={onClose} disabled={busy}>Cancel</Button>
+            <span className="wb-danger-fill"><Button iconName="remove" loading={busy} onClick={submit}>Delete</Button></span>
+          </SpaceBetween>
+        </Box>
+      }
+    >
+      <SpaceBetween size="s">
+        <Box>
+          Permanently delete these {items.length} use case{items.length === 1 ? '' : 's'}, including their
+          steps and all execution history &amp; artifacts? This cannot be undone.
+        </Box>
+        <ul className="uc-bulk-list">
+          {items.map((u) => <li key={u.id}>{u.name || '(untitled)'}</li>)}
+        </ul>
+      </SpaceBetween>
+    </Modal>
   );
 }
 
@@ -329,7 +506,7 @@ function CreateModal({ onClose, onCreated, onError }: { onClose: () => void; onC
 
 // ---- Import ----
 function ImportModal({ onClose, onImported, onError }: { onClose: () => void; onImported: (id: string) => void; onError: (m: string) => void }) {
-  const [text, setText] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   // After a successful import that carried secret keys (values never round-trip),
@@ -337,11 +514,13 @@ function ImportModal({ onClose, onImported, onError }: { onClose: () => void; on
   const [pending, setPending] = useState<{ id: string; secrets: string[] } | null>(null);
 
   const submit = async () => {
+    const file = files[0];
+    if (!file) return;
     let payload: UsecaseExport;
     try {
-      payload = JSON.parse(text) as UsecaseExport;
+      payload = JSON.parse(await file.text()) as UsecaseExport;
     } catch {
-      setParseError('Not valid JSON');
+      setParseError('The selected file is not valid JSON');
       return;
     }
     setBusy(true);
@@ -389,13 +568,29 @@ function ImportModal({ onClose, onImported, onError }: { onClose: () => void; on
         <Box float="right">
           <SpaceBetween direction="horizontal" size="xs">
             <Button variant="link" onClick={onClose}>Cancel</Button>
-            <Button variant="primary" loading={busy} disabled={!text.trim()} onClick={submit}>Import</Button>
+            <Button variant="primary" loading={busy} disabled={files.length === 0} onClick={submit}>Import</Button>
           </SpaceBetween>
         </Box>
       }
     >
-      <FormField label="Export JSON" description="Paste a use case export (exportVersion 1.0)." errorText={parseError ?? undefined}>
-        <Textarea value={text} onChange={({ detail }) => { setText(detail.value); setParseError(null); }} rows={12} placeholder='{ "exportVersion": "1.0", ... }' />
+      <FormField label="Export file" description="Choose a use case export produced by Export (a .json file, exportVersion 1.0)." errorText={parseError ?? undefined}>
+        <FileUpload
+          value={files}
+          onChange={({ detail }) => { setFiles(detail.value); setParseError(null); }}
+          accept="application/json,.json"
+          tokenLimit={1}
+          showFileSize
+          showFileLastModified
+          constraintText="A single .json use case export."
+          i18nStrings={{
+            uploadButtonText: (multiple) => (multiple ? 'Choose files' : 'Choose file'),
+            dropzoneText: (multiple) => (multiple ? 'Drop files to upload' : 'Drop file to upload'),
+            removeFileAriaLabel: (i) => `Remove file ${i + 1}`,
+            limitShowFewer: 'Show fewer files',
+            limitShowMore: 'Show more files',
+            errorIconAriaLabel: 'Error',
+          }}
+        />
       </FormField>
     </Modal>
   );

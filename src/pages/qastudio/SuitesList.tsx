@@ -27,7 +27,7 @@ const SUITES_BASE = '/apps/qa-studio/suites';
 export default function SuitesList() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canWrite = hasScope(user, 'api/nova/suite.write');
+  const canWrite = hasScope(user, 'api/qawb/suite.write');
 
   const [items, setItems] = useState<TestSuite[] | null>(null);
   const [error, setError] = useState<string | null>(null);

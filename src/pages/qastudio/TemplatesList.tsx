@@ -28,8 +28,8 @@ const BASE = '/apps/qa-studio/templates';
 export default function TemplatesList() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canWrite = hasScope(user, 'api/nova/templates.write');
-  const canApply = hasScope(user, 'api/nova/usecases.write');
+  const canWrite = hasScope(user, 'api/qawb/templates.write');
+  const canApply = hasScope(user, 'api/qawb/usecases.write');
 
   const [items, setItems] = useState<Template[] | null>(null);
   const [error, setError] = useState<string | null>(null);
