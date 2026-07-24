@@ -764,7 +764,7 @@ function DetailsTab({ usecase, canWrite, onSaved, onError }: { usecase: Usecase;
   return (
     <Container>
       <SpaceBetween size="m">
-        <FormField label="Use case ID" description="Read-only — use this with the CLI (qa nova run <id>)."><CopyToClipboard variant="inline" textToCopy={usecase.id} copySuccessText="Use case ID copied" copyErrorText="Failed to copy" /></FormField>
+        <FormField label="Use case ID" description={`Read-only — run it with the CLI: qa qawb run ${usecase.id} --env <environment> --capture <screenshots|full>`}><CopyToClipboard variant="inline" textToCopy={usecase.id} copySuccessText="Use case ID copied" copyErrorText="Failed to copy" /></FormField>
         <FormField label="Name"><Input value={name} readOnly={ro} onChange={({ detail }) => setName(detail.value)} /></FormField>
         <FormField label="Description"><Textarea value={description} readOnly={ro} onChange={({ detail }) => setDescription(detail.value)} /></FormField>
         <FormField label="Starting URL"><Input value={startingUrl} readOnly={ro} onChange={({ detail }) => setStartingUrl(detail.value)} /></FormField>

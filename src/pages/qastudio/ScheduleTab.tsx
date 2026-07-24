@@ -71,8 +71,8 @@ export default function ScheduleTab({
             counter={items ? `(${items.length})` : undefined}
             description="You can enable or disable a schedule in place. To change its name, timing, or capture, delete it and create a new one."
             actions={canWrite && (
-              <Button variant="primary" iconName="add-plus" onClick={() => setShowCreate(true)}>
-                New schedule
+              <Button variant="link" iconName="add-plus" onClick={() => setShowCreate(true)}>
+                Add
               </Button>
             )}
           >

@@ -59,7 +59,7 @@ export default function LandingPage() {
           <Box padding={{ top: 'l', horizontal: 'l' }}>
             <Header
               variant="h1"
-              description="Select an application to open it in the workbench."
+              description="Select an application to open it in QA Platform."
             >
               Applications
             </Header>

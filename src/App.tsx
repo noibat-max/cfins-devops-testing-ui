@@ -5,6 +5,7 @@ import AuthCallback from './pages/AuthCallback';
 import LandingPage from './pages/LandingPage';
 import AppScreen from './pages/AppScreen';
 import AdminScreen from './pages/AdminScreen';
+import Dashboard from './pages/qastudio/Dashboard';
 import UseCasesList from './pages/qastudio/UseCasesList';
 import UseCaseDetail from './pages/qastudio/UseCaseDetail';
 import TemplatesList from './pages/qastudio/TemplatesList';
@@ -26,6 +27,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <LandingPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/apps/qa-studio"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
           </ProtectedRoute>
         }
       />

@@ -4,6 +4,7 @@ import type {
   AuditEvent,
   AuthResponse,
   CreatedToken,
+  DashboardSummary,
   Execution,
   ExecutionStep,
   Group,
@@ -104,6 +105,12 @@ export function getMe(token: string): Promise<User> {
   return fetch(`${API}/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
   }).then((r) => asJson<User>(r));
+}
+
+// ---- Dashboard (QA Studio) ----
+
+export function getDashboardSummary(): Promise<DashboardSummary> {
+  return novaReq('/dashboard/summary');
 }
 
 // ---- Use cases (Nova / QA Studio) ----

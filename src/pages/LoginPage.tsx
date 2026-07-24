@@ -71,7 +71,7 @@ export default function LoginPage() {
                 height={72}
                 style={{ display: 'block', margin: '0 auto 12px' }}
               />
-              <Header variant="h1">QA Workbench</Header>
+              <Header variant="h1">QA Platform</Header>
               <Box color="text-body-secondary">Sign in to continue</Box>
             </Box>
           }

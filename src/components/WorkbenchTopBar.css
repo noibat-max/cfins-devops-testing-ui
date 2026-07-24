@@ -25,7 +25,7 @@
   display: block;
 }
 
-/* Separate "QA Workbench" wordmark SVG — clickable, returns to landing */
+/* Separate "QA Platform" wordmark SVG — clickable, returns to landing */
 .wb-wordmark {
   margin-left: 8px;
   display: inline-flex;

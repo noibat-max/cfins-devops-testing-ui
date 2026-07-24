@@ -67,7 +67,7 @@ export default function TokensSettings() {
                   </Button>
                 </SpaceBetween>
               }
-              description="Personal access tokens authenticate the QA Workbench CLI as you. A token inherits your permissions and works only in this environment."
+              description="Personal access tokens authenticate the QA Platform CLI as you. A token inherits your permissions and works only in this environment."
             >
               Personal access tokens
             </Header>

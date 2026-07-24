@@ -1,7 +1,7 @@
 import { applyTheme, type Theme } from '@cloudscape-design/components/theming';
 
 /**
- * Crum & Forster brand theme for QA Workbench.
+ * Crum & Forster brand theme for QA Platform.
  *
  * Approach (per design): keep Cloudscape's proven status colors + neutral gray
  * ramp, and override only the PRIMARY / accent to brand. Light theme only.

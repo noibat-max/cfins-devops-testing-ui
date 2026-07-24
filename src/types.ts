@@ -322,3 +322,24 @@ export interface Schedule {
   lastExecutionId?: string;
   nextRun: string | null;
 }
+
+export interface UpcomingSchedule {
+  scheduleId: string;
+  label?: string;
+  targetType: 'usecase' | 'suite';
+  targetId: string;
+  kind: 'once' | 'rate';
+  createdBy?: string;
+  nextRun: string;
+}
+
+export interface DashboardSummary {
+  counts: {
+    usecases: number;
+    suites: number;
+    templates: number;
+    schedules: number;
+    schedulesEnabled: number;
+  };
+  upcomingSchedules: UpcomingSchedule[];
+}

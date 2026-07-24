@@ -12,7 +12,7 @@ import { useAuth } from '../lib/auth';
 import { isAdmin } from '../types';
 import * as api from '../lib/api';
 // Inlined so the wordmark's text renders reliably (SVG text doesn't paint via <img>).
-import workbenchWordmark from '../branding/qa-workbench-white.svg?raw';
+import workbenchWordmark from '../branding/qa-platform-white.svg?raw';
 import './WorkbenchTopBar.css';
 
 interface Props {
@@ -24,7 +24,7 @@ interface Props {
  * The workbench navigation bar (top, always present). Custom layout (not
  * Cloudscape TopNavigation) so we can render:
  *   - the company logo (crum_foster_logo.svg) full-height on a white plaque
- *   - "QA Workbench" as a separate inline SVG wordmark
+ *   - "QA Platform" as a separate inline SVG wordmark
  *   - environment · user menu (email-based, nav-themed) on the right
  */
 export default function WorkbenchTopBar({ selectedAppName }: Props) {
@@ -74,16 +74,16 @@ export default function WorkbenchTopBar({ selectedAppName }: Props) {
       <button
         className="wb-plaque"
         onClick={() => navigate('/')}
-        aria-label="QA Workbench home"
+        aria-label="QA Platform home"
       >
         <img src="/branding/crum_foster_logo.svg" alt="Crum & Forster" />
       </button>
 
-      {/* Separate QA Workbench wordmark SVG — click returns to landing */}
+      {/* Separate QA Platform wordmark SVG — click returns to landing */}
       <button
         className="wb-wordmark"
         onClick={() => navigate('/')}
-        aria-label="QA Workbench — go to landing page"
+        aria-label="QA Platform — go to landing page"
         dangerouslySetInnerHTML={{ __html: workbenchWordmark }}
       />
 
