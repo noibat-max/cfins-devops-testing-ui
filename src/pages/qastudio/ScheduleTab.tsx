@@ -81,10 +81,7 @@ export default function ScheduleTab({
         }
         empty={
           <Box textAlign="center" padding="l" color="text-body-secondary">
-            <SpaceBetween size="s">
-              <b>No schedules</b>
-              {canWrite && <div><Button onClick={() => setShowCreate(true)}>New schedule</Button></div>}
-            </SpaceBetween>
+            <b>No schedules</b>
           </Box>
         }
         columnDefinitions={[

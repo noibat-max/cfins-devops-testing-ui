@@ -136,7 +136,7 @@ export default function ExecutionHistoryTab({
             <SpaceBetween size="s">
               <b>No runs yet</b>
               <span>Use <b>Run Now</b> (top right) to run on ECS, or run it locally from the CLI:</span>
-              <Box variant="code">qa nova run {usecaseId} --env local</Box>
+              <Box variant="code">qa qawb run {usecaseId} --env local</Box>
             </SpaceBetween>
           </Box>
         }

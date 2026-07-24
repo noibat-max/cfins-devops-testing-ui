@@ -1,7 +1,7 @@
 /**
  * Suite executions — batch runs of a test suite, with a live roll-up (derived
  * from member executions) and drill-in to each member use case's result.
- * Runs are CLI-driven (`qa nova run-suite`); in-flight runs auto-refresh.
+ * Runs are CLI-driven (`qa qawb run-suite`); in-flight runs auto-refresh.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@cloudscape-design/components/box';
@@ -133,7 +133,7 @@ export default function SuiteExecutionsTab({
             <SpaceBetween size="s">
               <b>No suite runs yet</b>
               <span>Use <b>Run Now</b> (top right) to run on ECS, or run it locally from the CLI:</span>
-              <Box variant="code">qa nova run-suite {suiteId} --env local</Box>
+              <Box variant="code">qa qawb run-suite {suiteId} --env local</Box>
             </SpaceBetween>
           </Box>
         }

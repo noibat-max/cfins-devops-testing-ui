@@ -626,7 +626,7 @@ function DetailsTab({
 
   return (
     <SpaceBetween size="l">
-      <FormField label="Suite ID" description="Read-only — use this with the CLI (qa nova run-suite <id>).">
+      <FormField label="Suite ID" description={`Read-only — run it with the CLI: qa qawb run-suite ${suite.id} --env <environment> --capture <screenshots|full>`}>
         <CopyToClipboard variant="inline" textToCopy={suite.id} copySuccessText="Suite ID copied" copyErrorText="Failed to copy" />
       </FormField>
       <FormField label="Name" errorText={canWrite ? nameError : undefined}>
